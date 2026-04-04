@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AROW++ // ARTEMIS II ORION TELEMETRY</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --green: #00ff41;
+      --green-dim: #00b32c;
+      --green-dark: #003d0f;
+      --green-glow: #00ff4180;
+      --amber: #ffb000;
+      --red: #ff3333;
+      --bg: #000a00;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--green);
+      font-family: 'Share Tech Mono', 'Courier New', monospace;
+      font-size: 13px;
+      min-height: 100vh;
+      padding: 12px;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* CRT scanlines overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.18) 2px,
+        rgba(0,0,0,0.18) 4px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* CRT vignette + phosphor bloom */
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: radial-gradient(ellipse at center,
+        rgba(0,255,65,0.04) 0%,
+        transparent 45%,
+        rgba(0,0,0,0.82) 100%
+      );
+      pointer-events: none;
+      z-index: 99;
+    }
+
+    /* ─── HEADER ─── */
+    #header {
+      font-family: 'VT323', monospace;
+      font-size: 36px;
+      text-align: center;
+      color: var(--green);
+      text-shadow: 0 0 10px var(--green-glow), 0 0 20px var(--green-glow);
+      letter-spacing: 4px;
+      padding: 8px 0 4px;
+      line-height: 1.1;
+    }
+
+    #subheader {
+      text-align: center;
+      font-size: 11px;
+      color: var(--green-dim);
+      letter-spacing: 6px;
+      margin-bottom: 10px;
+    }
+
+    .blink { animation: blink 1s step-end infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ─── STATUS BAR ─── */
+    #statusbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid var(--green-dim);
+      border-left: 3px solid var(--green);
+      padding: 4px 10px;
+      margin-bottom: 10px;
+      font-size: 11px;
+      background: rgba(0,255,65,0.03);
+    }
+
+    #conn-status { font-weight: bold; }
+    #conn-status.ok { color: var(--green); }
+    #conn-status.err { color: var(--red); }
+    #conn-status.loading { color: var(--amber); }
+
+    /* ─── GRID ─── */
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    @media (max-width: 1100px) {
+      #grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 700px) {
+      #grid { grid-template-columns: 1fr; }
+      #header { font-size: 26px; }
+    }
+
+    /* ─── PANEL ─── */
+    .panel {
+      border: 1px solid var(--green-dim);
+      background: rgba(0,255,65,0.02);
+      padding: 0;
+      position: relative;
+    }
+
+    .panel-title {
+      background: rgba(0,255,65,0.08);
+      border-bottom: 1px solid var(--green-dim);
+      padding: 4px 10px;
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: var(--green);
+      text-shadow: 0 0 6px var(--green-glow);
+    }
+
+    .panel-body {
+      padding: 8px 10px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 3px 0;
+      border-bottom: 1px solid rgba(0,255,65,0.07);
+    }
+    .row:last-child { border-bottom: none; }
+
+    .label {
+      color: var(--green-dim);
+      font-size: 11px;
+      flex-shrink: 0;
+      padding-right: 8px;
+    }
+
+    .value {
+      color: var(--green);
+      text-align: right;
+      font-size: 13px;
+      text-shadow: 0 0 4px rgba(0,255,65,0.4);
+    }
+
+    .value.big {
+      font-family: 'VT323', monospace;
+      font-size: 22px;
+      text-shadow: 0 0 8px var(--green-glow);
+    }
+
+    .value.amber { color: var(--amber); text-shadow: 0 0 4px rgba(255,176,0,0.4); }
+    .value.unknown { color: #888; font-style: italic; }
+    .value.good { color: #00ff41; }
+    .value.warn { color: var(--amber); }
+
+    /* ─── HERO METRIC ─── */
+    .hero-metric {
+      text-align: center;
+      padding: 10px 0 6px;
+    }
+    .hero-value {
+      font-family: 'VT323', monospace;
+      font-size: 52px;
+      color: var(--green);
+      text-shadow: 0 0 15px var(--green-glow), 0 0 30px rgba(0,255,65,0.2);
+      line-height: 1;
+      display: block;
+    }
+    .hero-unit {
+      font-size: 12px;
+      color: var(--green-dim);
+      letter-spacing: 2px;
+    }
+    .hero-sublabel {
+      font-size: 10px;
+      color: #666;
+      margin-top: 2px;
+    }
+
+    /* ─── QUAT VIZ ─── */
+    .quat-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .quat-cell {
+      text-align: center;
+      border: 1px solid rgba(0,255,65,0.2);
+      padding: 4px 2px;
+      background: rgba(0,255,65,0.03);
+    }
+    .quat-cell .qlabel { font-size: 10px; color: var(--green-dim); }
+    .quat-cell .qval { font-size: 13px; }
+
+    /* ─── VEC3 ─── */
+    .vec3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      margin: 4px 0;
+    }
+    .vec3-cell {
+      text-align: center;
+      border: 1px solid rgba(0,255,65,0.15);
+      padding: 4px 2px;
+      background: rgba(0,255,65,0.02);
+    }
+    .vec3-cell .vlabel { font-size: 10px; color: var(--green-dim); }
+    .vec3-cell .vval { font-size: 12px; }
+
+    /* ─── PROGRESS BAR ─── */
+    .prog-wrap {
+      height: 6px;
+      background: rgba(0,255,65,0.1);
+      border: 1px solid var(--green-dark);
+      margin: 6px 0 2px;
+      overflow: hidden;
+    }
+    .prog-bar {
+      height: 100%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green-glow);
+      transition: width 1s linear;
+    }
+    .prog-label {
+      font-size: 10px;
+      color: var(--green-dim);
+      text-align: right;
+    }
+
+    /* ─── PHASE BADGE ─── */
+    .phase-badge {
+      display: inline-block;
+      border: 1px solid var(--amber);
+      color: var(--amber);
+      padding: 2px 8px;
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-shadow: 0 0 6px rgba(255,176,0,0.5);
+    }
+
+    /* ─── DIVIDER ─── */
+    .div { border: none; border-top: 1px solid rgba(0,255,65,0.12); margin: 6px 0; }
+
+    /* ─── FOOTER ─── */
+    #footer {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 10px;
+      color: #1a4d1a;
+      letter-spacing: 2px;
+    }
+
+    /* ─── REFRESH COUNTDOWN ─── */
+    #countdown-bar {
+      height: 2px;
+      background: rgba(0,255,65,0.08);
+      margin-bottom: 10px;
+    }
+    #countdown-fill {
+      height: 100%;
+      background: var(--green-dim);
+      transition: width 1s linear;
+    }
+
+    /* ─── EULER ANGLES ─── */
+    .euler-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .euler-cell {
+      text-align: center;
+      border: 1px solid rgba(0,255,65,0.2);
+      padding: 6px 2px;
+      background: rgba(0,255,65,0.02);
+    }
+    .euler-cell .elabel { font-size: 10px; color: var(--green-dim); }
+    .euler-cell .eval {
+      font-family: 'VT323', monospace;
+      font-size: 24px;
+      text-shadow: 0 0 6px var(--green-glow);
+    }
+    .euler-cell .eunit { font-size: 10px; color: #666; }
+
+    /* ─── UNIT TOGGLE ─── */
+    #unit-toggle {
+      background: none;
+      border: 1px solid var(--green-dim);
+      color: var(--green-dim);
+      font-family: 'Share Tech Mono', 'Courier New', monospace;
+      font-size: 11px;
+      letter-spacing: 2px;
+      padding: 2px 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    #unit-toggle:hover {
+      border-color: var(--green);
+      color: var(--green);
+      text-shadow: 0 0 6px var(--green-glow);
+    }
+    #unit-toggle.imperial {
+      border-color: var(--amber);
+      color: var(--amber);
+      text-shadow: 0 0 4px rgba(255,176,0,0.4);
+    }
+
+    /* ─── MISC ─── */
+    .tag {
+      font-size: 10px;
+      color: #1a4d1a;
+      display: inline;
+    }
+    .sep { color: #1a4d1a; }
+  </style>
+</head>
+<body>
+<div id="header">
+  ◄ ARTEMIS II // ORION TELEMETRY ►<span class="blink">_</span>
+</div>
+<div id="subheader">ARTEMIS REAL-TIME ORBIT WEBSITE — EXTENDED</div>
+
+<div id="statusbar">
+  <span id="conn-status" class="loading">◉ CONNECTING...</span>
+  <span id="last-updated">LAST UPDATE: —</span>
+  <span style="display:flex;align-items:center;gap:10px">
+    <button id="unit-toggle" class="imperial" onclick="toggleUnits()">IMPERIAL</button>
+    <span id="next-refresh">NEXT REFRESH: —</span>
+  </span>
+</div>
+
+<div id="countdown-bar"><div id="countdown-fill" style="width:100%"></div></div>
+
+<div id="grid">
+
+  <!-- PANEL: DISTANCE & POSITION -->
+  <div class="panel">
+    <div class="panel-title">◈ NAVIGATION // DISTANCE</div>
+    <div class="panel-body">
+      <div class="hero-metric">
+        <span class="hero-value" id="dist-earth">—</span>
+        <span class="hero-unit" id="dist-earth-unit">KM FROM EARTH</span>
+      </div>
+      <hr class="div">
+      <div class="row">
+        <span class="label">DISTANCE TO MOON</span>
+        <span class="value big" id="dist-moon">—</span>
+      </div>
+      <div class="row">
+        <span class="label">DECLINATION</span>
+        <span class="value" id="declination">—</span>
+      </div>
+      <div class="row">
+        <span class="label">RIGHT ASCENSION</span>
+        <span class="value" id="right-asc">—</span>
+      </div>
+      <div class="row">
+        <span class="label">ANGLE 1</span>
+        <span class="value" id="angle1">—</span>
+      </div>
+      <div class="row">
+        <span class="label">ANGLE 2</span>
+        <span class="value" id="angle2">—</span>
+      </div>
+      <div class="row">
+        <span class="label">ANGLE 3</span>
+        <span class="value" id="angle3">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: VELOCITY -->
+  <div class="panel">
+    <div class="panel-title">◈ VELOCITY VECTOR // INERTIAL</div>
+    <div class="panel-body">
+      <div class="hero-metric">
+        <span class="hero-value" id="speed">—</span>
+        <span class="hero-unit" id="speed-unit">KM/H TOTAL SPEED</span>
+        <div class="hero-sublabel" id="speed-kmh">—</div>
+      </div>
+      <hr class="div">
+      <div class="label" id="vel-unit-label" style="margin-bottom:4px">ECI VELOCITY COMPONENTS (M/S)</div>
+      <div class="vec3">
+        <div class="vec3-cell">
+          <div class="vlabel">Vx</div>
+          <div class="vval" id="vx">—</div>
+        </div>
+        <div class="vec3-cell">
+          <div class="vlabel">Vy</div>
+          <div class="vval" id="vy">—</div>
+        </div>
+        <div class="vec3-cell">
+          <div class="vlabel">Vz</div>
+          <div class="vval" id="vz">—</div>
+        </div>
+      </div>
+      <hr class="div">
+      <div class="label" id="pos-unit-label" style="margin-bottom:4px">ECI POSITION VECTOR (METERS)</div>
+      <div class="vec3">
+        <div class="vec3-cell">
+          <div class="vlabel">Px</div>
+          <div class="vval" id="px">—</div>
+        </div>
+        <div class="vec3-cell">
+          <div class="vlabel">Py</div>
+          <div class="vval" id="py">—</div>
+        </div>
+        <div class="vec3-cell">
+          <div class="vlabel">Pz</div>
+          <div class="vval" id="pz">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: ATTITUDE -->
+  <div class="panel">
+    <div class="panel-title">◈ SPACECRAFT ATTITUDE // ORIENTATION</div>
+    <div class="panel-body">
+      <div class="label" style="margin-bottom:4px">ATTITUDE QUATERNION (ECI BODY FRAME)</div>
+      <div class="quat-row">
+        <div class="quat-cell"><div class="qlabel">Q₁ (x)</div><div class="qval" id="q1">—</div></div>
+        <div class="quat-cell"><div class="qlabel">Q₂ (y)</div><div class="qval" id="q2">—</div></div>
+        <div class="quat-cell"><div class="qlabel">Q₃ (z)</div><div class="qval" id="q3">—</div></div>
+        <div class="quat-cell"><div class="qlabel">Q₄ (w)</div><div class="qval" id="q4">—</div></div>
+      </div>
+      <hr class="div">
+      <div class="label" style="margin-bottom:4px">DERIVED EULER ANGLES (ZYX)</div>
+      <div class="euler-grid">
+        <div class="euler-cell">
+          <div class="elabel">ROLL</div>
+          <div class="eval" id="roll">—</div>
+          <div class="eunit">degrees</div>
+        </div>
+        <div class="euler-cell">
+          <div class="elabel">PITCH</div>
+          <div class="eval" id="pitch">—</div>
+          <div class="eunit">degrees</div>
+        </div>
+        <div class="euler-cell">
+          <div class="elabel">YAW</div>
+          <div class="eval" id="yaw">—</div>
+          <div class="eunit">degrees</div>
+        </div>
+      </div>
+      <hr class="div">
+      <div class="row">
+        <span class="label">QUATERNION NORM</span>
+        <span class="value good" id="qnorm">—</span>
+      </div>
+      <div class="row">
+        <span class="label">STATUS FLAGS</span>
+        <span class="value" id="status-flags">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: MISSION STATUS -->
+  <div class="panel">
+    <div class="panel-title">◈ MISSION STATUS</div>
+    <div class="panel-body">
+      <div class="row">
+        <span class="label">ACTIVITY</span>
+        <span class="value good" id="activity">—</span>
+      </div>
+      <div class="row">
+        <span class="label">FILE TYPE</span>
+        <span class="value" id="file-type">—</span>
+      </div>
+      <div class="row">
+        <span class="label">PHASE CODE</span>
+        <span class="value amber" id="phase-code">—</span>
+      </div>
+      <div class="row">
+        <span class="label">PHASE NAME</span>
+        <span class="value amber" id="phase-name">—</span>
+      </div>
+      <hr class="div">
+      <div class="row">
+        <span class="label">FILE TIMESTAMP</span>
+        <span class="value" id="file-ts">—</span>
+      </div>
+      <div class="row">
+        <span class="label">TELEMETRY TIME</span>
+        <span class="value" id="telem-time">—</span>
+      </div>
+      <div class="row">
+        <span class="label">TIME SYS</span>
+        <span class="value" id="time-sys">UNIX EPOCH (UTC)</span>
+      </div>
+      <hr class="div">
+      <div class="row">
+        <span class="label">TOTAL PARAMS</span>
+        <span class="value" id="total-params">—</span>
+      </div>
+      <div class="row">
+        <span class="label">PARAMS OK</span>
+        <span class="value good" id="params-ok">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: ANGULAR RATES -->
+  <div class="panel">
+    <div class="panel-title">◈ ANGULAR / SENSOR DATA (P2048–P2103)</div>
+    <div class="panel-body">
+      <div class="label" style="margin-bottom:4px">VECTOR GROUP A (P2048–P2056)</div>
+      <div class="vec3">
+        <div class="vec3-cell"><div class="vlabel">P2048</div><div class="vval" id="p2048">—</div></div>
+        <div class="vec3-cell"><div class="vlabel">P2049</div><div class="vval" id="p2049">—</div></div>
+        <div class="vec3-cell"><div class="vlabel">P2050</div><div class="vval" id="p2050">—</div></div>
+      </div>
+      <div class="vec3" style="margin-top:3px">
+        <div class="vec3-cell"><div class="vlabel">P2051</div><div class="vval" id="p2051">—</div></div>
+        <div class="vec3-cell"><div class="vlabel">P2052</div><div class="vval" id="p2052">—</div></div>
+        <div class="vec3-cell"><div class="vlabel">P2053</div><div class="vval" id="p2053">—</div></div>
+      </div>
+      <div class="vec3" style="margin-top:3px">
+        <div class="vec3-cell"><div class="vlabel">P2054</div><div class="vval" id="p2054">—</div></div>
+        <div class="vec3-cell"><div class="vlabel">P2055</div><div class="vval" id="p2055">—</div></div>
+        <div class="vec3-cell"><div class="vlabel">P2056</div><div class="vval" id="p2056">—</div></div>
+      </div>
+      <hr class="div">
+      <div class="label" style="margin-bottom:4px">GYRO / RATE DATA (P2096–P2098)</div>
+      <div class="vec3">
+        <div class="vec3-cell"><div class="vlabel">P2096</div><div class="vval" id="p2096">—</div></div>
+        <div class="vec3-cell"><div class="vlabel">P2097</div><div class="vval" id="p2097">—</div></div>
+        <div class="vec3-cell"><div class="vlabel">P2098</div><div class="vval" id="p2098">—</div></div>
+      </div>
+      <hr class="div">
+      <div class="label" style="margin-bottom:4px">ACCEL / DELTA-V (P2101–P2103)</div>
+      <div class="vec3">
+        <div class="vec3-cell"><div class="vlabel">P2101</div><div class="vval" id="p2101">—</div></div>
+        <div class="vec3-cell"><div class="vlabel">P2102</div><div class="vval" id="p2102">—</div></div>
+        <div class="vec3-cell"><div class="vlabel">P2103</div><div class="vval" id="p2103">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: TIMESTAMPS & TIMING -->
+  <div class="panel">
+    <div class="panel-title">◈ TIMING // EPOCH DATA</div>
+    <div class="panel-body">
+      <div class="row">
+        <span class="label">P5010 (UTC)</span>
+        <span class="value" id="ts5010">—</span>
+      </div>
+      <div class="row">
+        <span class="label">P5011 (UTC)</span>
+        <span class="value" id="ts5011">—</span>
+      </div>
+      <div class="row">
+        <span class="label">P5012 (UTC)</span>
+        <span class="value" id="ts5012">—</span>
+      </div>
+      <div class="row">
+        <span class="label">P5013 (UTC)</span>
+        <span class="value unknown" id="ts5013">—</span>
+      </div>
+      <hr class="div">
+      <div class="row">
+        <span class="label">ELAPSED (MET)</span>
+        <span class="value big" id="met">—</span>
+      </div>
+      <div class="row">
+        <span class="label">LAUNCH DATE</span>
+        <span class="value">2026-04-02 03:07:49 UTC</span>
+      </div>
+      <hr class="div">
+      <div class="label" style="margin-bottom:4px">P5002–P5006 (ANGULAR / RATES)</div>
+      <div class="row"><span class="label">P5002</span><span class="value" id="p5002">—</span></div>
+      <div class="row"><span class="label">P5003</span><span class="value" id="p5003">—</span></div>
+      <div class="row"><span class="label">P5004</span><span class="value" id="p5004">—</span></div>
+      <div class="row"><span class="label">P5005</span><span class="value" id="p5005">—</span></div>
+      <div class="row"><span class="label">P5006</span><span class="value" id="p5006">—</span></div>
+    </div>
+  </div>
+
+</div>
+
+<div id="footer">
+  ◄ DATA SOURCE: STORAGE.GOOGLEAPIS.COM/P-2-CEN1 // NASA/JSC/FOD/FDO // REFRESH: 15S ►<br>
+  UNOFFICIAL EXTENDED VIEWER — NOT AFFILIATED WITH NASA
+
+</div>
+
+<script>
+  const DATA_URL = '/api/artemis/telemetry';
+  const REFRESH_INTERVAL = 15; // seconds
+  const LAUNCH_EPOCH = new Date('2026-04-01T22:34:09Z').getTime();
+
+  let useImperial = true;
+  let lastData = null;
+
+  const KM_TO_MI  = 0.621371;
+  const MS_TO_FTS = 3.28084;
+  const FT_PER_KM = 3280.84;
+
+  // Low-precision Moon ECI position (Meeus, Astronomical Algorithms ch.47)
+  // unixTs: seconds since Unix epoch; returns {x,y,z} in km (geocentric ECI)
+  function moonECI(unixTs) {
+    const T = (unixTs - 946728000) / (36525 * 86400); // Julian centuries from J2000
+    const d2r = Math.PI / 180;
+    const m360 = x => ((x % 360) + 360) % 360;
+
+    const L0 = m360(218.3164477 + 481267.88123421 * T);
+    const D  = m360(297.8501921 + 445267.1114034  * T);
+    const M  = m360(357.5291092 + 35999.0502909   * T);
+    const Mm = m360(134.9634114 + 477198.8676313  * T);
+    const F  = m360(93.2720950  + 483202.0175233  * T);
+
+    const SumL = (6288774*Math.sin(Mm*d2r)
+      + 1274027*Math.sin((2*D-Mm)*d2r) +  658314*Math.sin(2*D*d2r)
+      +  213618*Math.sin(2*Mm*d2r)     -  185116*Math.sin(M*d2r)
+      -  114332*Math.sin(2*F*d2r)      +   58793*Math.sin((2*D-2*Mm)*d2r)
+      +   57066*Math.sin((2*D-M-Mm)*d2r)+  53322*Math.sin((2*D+Mm)*d2r)
+      +   45758*Math.sin((2*D-M)*d2r)  -   40923*Math.sin((M-Mm)*d2r)
+      -   34720*Math.sin(D*d2r)        -   30383*Math.sin((M+Mm)*d2r));
+
+    const SumR = (-20905355*Math.cos(Mm*d2r)
+      - 3699111*Math.cos((2*D-Mm)*d2r) - 2955968*Math.cos(2*D*d2r)
+      -  569925*Math.cos(2*Mm*d2r)     +   48888*Math.cos(M*d2r)
+      +  246158*Math.cos((2*D-2*Mm)*d2r)- 152138*Math.cos((2*D-M-Mm)*d2r)
+      -  170733*Math.cos((2*D+Mm)*d2r) -  204586*Math.cos((2*D-M)*d2r)
+      -  129620*Math.cos((M-Mm)*d2r)   +  108743*Math.cos(D*d2r)
+      +  104755*Math.cos((M+Mm)*d2r));
+
+    const SumB = (5128122*Math.sin(F*d2r)
+      + 280602*Math.sin((Mm+F)*d2r)  + 277693*Math.sin((Mm-F)*d2r)
+      + 173237*Math.sin((2*D-F)*d2r) +  55413*Math.sin((2*D-Mm+F)*d2r)
+      +  46271*Math.sin((2*D-Mm-F)*d2r)+ 32573*Math.sin((2*D+F)*d2r)
+      +  17198*Math.sin((2*Mm+F)*d2r)+   9266*Math.sin((2*D+Mm-F)*d2r)
+      +   8822*Math.sin((2*Mm-F)*d2r));
+
+    const lam  = (L0 + SumL / 1e6) * d2r;   // ecliptic longitude (rad)
+    const beta = (SumB / 1e6) * d2r;         // ecliptic latitude (rad)
+    const dist = 385000.56 + SumR / 1000;    // km from Earth center
+
+    const eps = (23.439291 - 0.013004 * T) * d2r; // obliquity
+    return {
+      x: dist * Math.cos(beta) * Math.cos(lam),
+      y: dist * (Math.cos(eps) * Math.cos(beta) * Math.sin(lam) - Math.sin(eps) * Math.sin(beta)),
+      z: dist * (Math.sin(eps) * Math.cos(beta) * Math.sin(lam) + Math.cos(eps) * Math.sin(beta)),
+      earthDist: dist,
+    };
+  }
+
+  function toggleUnits() {
+    useImperial = !useImperial;
+    const btn = document.getElementById('unit-toggle');
+    btn.textContent = useImperial ? 'IMPERIAL' : 'METRIC';
+    btn.classList.toggle('imperial', useImperial);
+    if (lastData) updateDisplay(lastData);
+  }
+
+  // Mission phase lookup (Orion Artemis phase codes — best-effort decoding)
+  const PHASE_CODES = {
+    100: 'PRE-LAUNCH',
+    101: 'COUNTDOWN',
+    200: 'ASCENT / SLS BOOST',
+    201: 'CORE STAGE BURN',
+    202: 'UPPER STAGE BURN',
+    300: 'EARLY EARTH ORBIT',
+    400: 'TRANS-LUNAR INJECTION',
+    410: 'TRANS-LUNAR COAST',
+    420: 'LUNAR APPROACH',
+    430: 'LUNAR FLYBY',
+    500: 'RETURN COAST',
+    510: 'TRANS-EARTH COAST',
+    600: 'ENTRY INTERFACE',
+    610: 'REENTRY',
+    700: 'RECOVERY',
+  };
+
+  const FILE_TYPES = {
+    4: 'MISSION (LIVE)',
+    253: 'SIMULATION',
+    255: 'TEST',
+  };
+
+  function fmt(n, digits = 2) {
+    if (n === null || n === undefined || isNaN(n)) return '—';
+    return parseFloat(n).toFixed(digits);
+  }
+
+  function fmtBig(n) {
+    if (n === null || n === undefined || isNaN(n)) return '—';
+    return Math.round(n).toLocaleString();
+  }
+
+  function quatToEuler(q1, q2, q3, q4) {
+    // Convention: [qx, qy, qz, qw] scalar-last (Hamilton)
+    const qx = q1, qy = q2, qz = q3, qw = q4;
+    const r2d = 180 / Math.PI;
+
+    // ZYX Euler (roll, pitch, yaw)
+    const sinr_cosp = 2 * (qw * qx + qy * qz);
+    const cosr_cosp = 1 - 2 * (qx * qx + qy * qy);
+    const roll = Math.atan2(sinr_cosp, cosr_cosp) * r2d;
+
+    const sinp = 2 * (qw * qy - qz * qx);
+    const pitch = Math.abs(sinp) >= 1
+      ? Math.sign(sinp) * 90
+      : Math.asin(sinp) * r2d;
+
+    const siny_cosp = 2 * (qw * qz + qx * qy);
+    const cosy_cosp = 1 - 2 * (qy * qy + qz * qz);
+    const yaw = Math.atan2(siny_cosp, cosy_cosp) * r2d;
+
+    return { roll, pitch, yaw };
+  }
+
+  function formatMET(ms) {
+    const s = Math.floor(ms / 1000);
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    return `${String(d).padStart(2,'0')}:${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  }
+
+  function formatUnixToUTC(ts) {
+    if (!ts) return '—';
+    try {
+      return new Date(parseFloat(ts) * 1000).toISOString().replace('T', ' ').slice(0, 23) + ' UTC';
+    } catch { return '—'; }
+  }
+
+  function set(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  }
+
+  function updateDisplay(data) {
+    const file = data.File || {};
+    const p = (num) => data[`Parameter_${num}`];
+    const v = (num) => p(num) ? parseFloat(p(num).Value) : null;
+
+    const now = Date.now();
+
+    // Status bar
+    const connEl = document.getElementById('conn-status');
+    connEl.textContent = '◉ LIVE';
+    connEl.className = 'ok';
+    set('last-updated', 'LAST UPDATE: ' + new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC');
+
+    // File metadata
+    set('activity', file.Activity === 'MIS' ? 'MISSION (LIVE)' : (file.Activity || '—'));
+    set('file-type', FILE_TYPES[file.Type] || `TYPE ${file.Type}`);
+    set('file-ts', file.Date || '—');
+
+    // Total / good params
+    const paramKeys = Object.keys(data).filter(k => k.startsWith('Parameter_'));
+    const goodCount = paramKeys.filter(k => data[k].Status === 'Good').length;
+    set('total-params', paramKeys.length);
+    set('params-ok', `${goodCount} / ${paramKeys.length}`);
+
+    // Position vector — raw values are in FEET (confirmed vs OEM ephemeris)
+    const px_ft = v(2003), py_ft = v(2004), pz_ft = v(2005);
+    let sc_x_km = null, sc_y_km = null, sc_z_km = null, earthDist = null;
+    if (px_ft !== null) {
+      sc_x_km = px_ft / FT_PER_KM;
+      sc_y_km = py_ft / FT_PER_KM;
+      sc_z_km = pz_ft / FT_PER_KM;
+      earthDist = Math.sqrt(sc_x_km**2 + sc_y_km**2 + sc_z_km**2);
+
+      const altKm = earthDist - 6371;
+      const d = useImperial ? altKm * KM_TO_MI : altKm;
+      set('dist-earth', fmtBig(d));
+      set('dist-earth-unit', useImperial ? 'MI FROM EARTH' : 'KM FROM EARTH');
+    }
+
+    // Moon distance — computed via Meeus algorithm using spacecraft ECI position
+    const telemTs = v(5012) || v(5010);
+    if (telemTs && sc_x_km !== null) {
+      const moon = moonECI(telemTs);
+      const dx = moon.x - sc_x_km, dy = moon.y - sc_y_km, dz = moon.z - sc_z_km;
+      const moonDist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+      const d = useImperial ? moonDist * KM_TO_MI : moonDist;
+      set('dist-moon', fmtBig(d));
+    }
+
+    // Angular nav params (dimensionless — no conversion)
+    set('declination', v(5002) !== null ? fmt(v(5002), 4) + '°' : '—');
+    set('right-asc',   v(5003) !== null ? fmt(v(5003), 4) + '°' : '—');
+    set('angle1',      v(5007) !== null ? fmt(v(5007), 4) + '°' : '—');
+    set('angle2',      v(5008) !== null ? fmt(v(5008), 4) + '°' : '—');
+    set('angle3',      v(5009) !== null ? fmt(v(5009), 4) + '°' : '—');
+
+    // Velocity — raw values are in ft/s (confirmed vs OEM ephemeris)
+    const vx_fts = v(2009), vy_fts = v(2010), vz_fts = v(2011);
+    if (vx_fts !== null) {
+      const speed_fts = Math.sqrt(vx_fts**2 + vy_fts**2 + vz_fts**2);
+      const speed_ms  = speed_fts / MS_TO_FTS;
+      if (useImperial) {
+        const speed_mph = speed_fts / 5280 * 3600;
+        set('speed', fmtBig(Math.round(speed_mph)));
+        set('speed-unit', 'MPH TOTAL SPEED');
+        set('speed-kmh', `${fmt(speed_fts, 1)} ft/s  //  ${fmt(speed_fts / 5280, 4)} mi/s`);
+        set('vel-unit-label', 'ECI VELOCITY COMPONENTS (FT/S)');
+        set('vx', fmt(vx_fts, 1));
+        set('vy', fmt(vy_fts, 1));
+        set('vz', fmt(vz_fts, 1));
+      } else {
+        const speed_kmh = speed_ms * 3.6;
+        set('speed', fmtBig(Math.round(speed_kmh)));
+        set('speed-unit', 'KM/H TOTAL SPEED');
+        set('speed-kmh', `${fmt(speed_ms, 1)} m/s  //  ${fmt(speed_ms/1000, 4)} km/s`);
+        set('vel-unit-label', 'ECI VELOCITY COMPONENTS (M/S)');
+        set('vx', fmt(vx_fts / MS_TO_FTS, 1));
+        set('vy', fmt(vy_fts / MS_TO_FTS, 1));
+        set('vz', fmt(vz_fts / MS_TO_FTS, 1));
+      }
+    }
+
+    // Position display (raw in feet, display converted)
+    if (px_ft !== null) {
+      if (useImperial) {
+        // show in thousands of miles
+        set('px', (px_ft / (FT_PER_KM * 1000 / KM_TO_MI)).toFixed(3) + ' K mi');
+        set('py', (py_ft / (FT_PER_KM * 1000 / KM_TO_MI)).toFixed(3) + ' K mi');
+        set('pz', (pz_ft / (FT_PER_KM * 1000 / KM_TO_MI)).toFixed(3) + ' K mi');
+        set('pos-unit-label', 'ECI POSITION VECTOR (K MI)');
+      } else {
+        set('px', sc_x_km.toFixed(1) + ' km');
+        set('py', sc_y_km.toFixed(1) + ' km');
+        set('pz', sc_z_km.toFixed(1) + ' km');
+        set('pos-unit-label', 'ECI POSITION VECTOR (KM)');
+      }
+    }
+
+    // Attitude quaternion
+    const q1 = v(2012), q2 = v(2013), q3 = v(2014), q4 = v(2015);
+    if (q1 !== null) {
+      set('q1', fmt(q1, 6));
+      set('q2', fmt(q2, 6));
+      set('q3', fmt(q3, 6));
+      set('q4', fmt(q4, 6));
+
+      const norm = Math.sqrt(q1*q1 + q2*q2 + q3*q3 + q4*q4);
+      set('qnorm', fmt(norm, 8) + (Math.abs(norm - 1) < 0.001 ? ' ✓ VALID' : ' ✗ INVALID'));
+
+      const euler = quatToEuler(q1, q2, q3, q4);
+      set('roll',  fmt(euler.roll, 2));
+      set('pitch', fmt(euler.pitch, 2));
+      set('yaw',   fmt(euler.yaw, 2));
+    }
+
+    // Status flags
+    const f1 = p(2016) ? p(2016).Value : null;
+    const f2 = p(2090) ? p(2090).Value : null;
+    const f3 = p(2099) ? p(2099).Value : null;
+    set('status-flags', [f1, f2, f3].filter(Boolean).map(x => '0x'+x).join(' '));
+
+    // Mission phase
+    const phase = v(2026);
+    set('phase-code', phase !== null ? phase : '—');
+    set('phase-name', phase !== null ? (PHASE_CODES[phase] || `UNKNOWN (${phase})`) : '—');
+
+    // Timestamps
+    set('ts5010', formatUnixToUTC(v(5010)));
+    set('ts5011', formatUnixToUTC(v(5011)));
+    set('ts5012', formatUnixToUTC(v(5012)));
+    set('ts5013', formatUnixToUTC(v(5013)) + ' ⚑');
+
+    // Telemetry time from most recent param
+    if (telemTs) {
+      set('telem-time', formatUnixToUTC(telemTs));
+      // MET
+      const met = (telemTs * 1000) - LAUNCH_EPOCH;
+      set('met', met > 0 ? formatMET(met) : '—');
+    }
+
+    // Angular/sensor data
+    for (const n of [2048,2049,2050,2051,2052,2053,2054,2055,2056,2096,2097,2098,2101,2102,2103]) {
+      const val = v(n);
+      set('p' + n, val !== null ? fmt(val, 6) : '—');
+    }
+
+    // P5002-5006
+    for (const n of [5002,5003,5004,5005,5006]) {
+      const val = v(n);
+      set('p' + n, val !== null ? fmt(val, 6) : '—');
+    }
+  }
+
+  let countdown = REFRESH_INTERVAL;
+  let countdownTimer;
+
+  function startCountdown() {
+    countdown = REFRESH_INTERVAL;
+    clearInterval(countdownTimer);
+    countdownTimer = setInterval(() => {
+      countdown--;
+      const fill = document.getElementById('countdown-fill');
+      if (fill) fill.style.width = (countdown / REFRESH_INTERVAL * 100) + '%';
+      set('next-refresh', `NEXT REFRESH: ${countdown}s`);
+      if (countdown <= 0) {
+        clearInterval(countdownTimer);
+        fetchData();
+      }
+    }, 1000);
+  }
+
+  async function fetchOnce() {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    try {
+      const resp = await fetch(DATA_URL, { cache: 'no-store', signal: controller.signal });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      return await resp.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function fetchData() {
+    const connEl = document.getElementById('conn-status');
+    connEl.textContent = '◉ FETCHING...';
+    connEl.className = 'loading';
+
+    let data = null;
+    let lastErr = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        data = await fetchOnce();
+        break;
+      } catch (err) {
+        lastErr = err;
+        if (attempt === 0) await new Promise(r => setTimeout(r, 2000));
+      }
+    }
+
+    if (data) {
+      lastData = data;
+      updateDisplay(data);
+    } else {
+      const msg = lastErr?.name === 'AbortError' ? 'TIMEOUT' : (lastErr?.message || 'UNKNOWN');
+      connEl.textContent = '◉ ERROR: ' + msg;
+      connEl.className = 'err';
+      set('last-updated', 'LAST UPDATE: FAILED ' + new Date().toISOString().slice(11, 19));
+    }
+
+    startCountdown();
+  }
+
+  // Initial fetch
+  fetchData();
+</script>
+</body>
+</html>

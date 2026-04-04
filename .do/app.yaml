@@ -1,0 +1,13 @@
+name: tui-web
+services:
+- name: web
+  github:
+    repo: seaburr/tui-web-framework
+    branch: main
+    deploy_on_push: true
+  dockerfile_path: Dockerfile
+  http_port: 8080
+  health_check:
+    http_path: /healthz
+  instance_size_slug: basic-xxs
+  instance_count: 1
