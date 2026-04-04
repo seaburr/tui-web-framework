@@ -2,7 +2,7 @@ FROM python:3.12-alpine
 WORKDIR /app
 
 # No external dependencies — stdlib only.
-COPY artemis-ui.css lib.py server.py ./
+COPY artemis-ui.css lib.py server.py 404.html ./
 COPY apps/ apps/
 
 EXPOSE 8080

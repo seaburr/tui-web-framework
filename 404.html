@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>0x404 — INVALID MEMORY OFFSET</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./artemis-ui.css">
+  <style>
+    .dump-block {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      color: #444;
+      line-height: 1.6;
+      margin: 12px 0;
+    }
+    .dump-block .addr { color: #666; }
+    .dump-block .highlight { color: #c0392b; }
+    .fault-code {
+      font-size: 48px;
+      font-family: 'VT323', monospace;
+      color: #c0392b;
+      text-align: center;
+      letter-spacing: 4px;
+      text-shadow: 0 0 20px rgba(192,57,43,0.5);
+    }
+    .fault-msg {
+      text-align: center;
+      color: #888;
+      margin-bottom: 16px;
+    }
+    .trace {
+      font-size: 11px;
+      color: #555;
+      line-height: 1.8;
+    }
+    .trace .frame { color: #777; }
+    .trace .file  { color: #4a4; }
+    .go-back {
+      display: block;
+      text-align: center;
+      margin-top: 20px;
+      color: #888;
+      text-decoration: none;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 13px;
+    }
+    .go-back:hover { color: #aaa; }
+  </style>
+</head>
+<body>
+
+<div class="aui-header">
+  ◄ SYSTEM FAULT ►<span class="blink">_</span>
+</div>
+<div class="aui-subheader">FATAL EXCEPTION @ 0x00000000 — CORE DUMP IN PROGRESS</div>
+
+<div class="aui-statusbar">
+  <span class="aui-conn err">◉ SEGFAULT</span>
+  <span>PID: 404</span>
+  <span>SIG: SIGSEGV</span>
+  <span>EXIT CODE: 139</span>
+</div>
+
+<div class="aui-refresh-bar"><div class="aui-refresh-fill" style="width:0%"></div></div>
+
+<div class="aui-grid">
+
+  <div class="panel">
+    <div class="panel-title">◈ EXCEPTION DETAILS</div>
+    <div class="panel-body">
+      <div class="fault-code">0x404</div>
+      <div class="fault-msg">INVALID MEMORY OFFSET</div>
+      <hr class="div">
+      <div class="row">
+        <span class="label">FAULT ADDR</span>
+        <span class="value" style="color:#c0392b">0x00000000</span>
+      </div>
+      <div class="row">
+        <span class="label">FAULT TYPE</span>
+        <span class="value">PAGE NOT PRESENT</span>
+      </div>
+      <div class="row">
+        <span class="label">ACCESS</span>
+        <span class="value">READ</span>
+      </div>
+      <div class="row">
+        <span class="label">PRIVILEGE</span>
+        <span class="value dim">USER MODE</span>
+      </div>
+      <div class="row">
+        <span class="label">RESOLUTION</span>
+        <span class="value dim">IMPOSSIBLE</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">◈ STACK TRACE</div>
+    <div class="panel-body">
+      <div class="trace">
+        <div><span class="frame">#0</span>  <span style="color:#888">0x00000000</span> in <span style="color:#aaa">??</span> ()</div>
+        <div><span class="frame">#1</span>  <span style="color:#888">0xdeadbeef</span> in <span style="color:#aaa">route_request</span> (path=<span class="file">NOT_FOUND</span>)</div>
+        <div><span class="frame">#2</span>  <span style="color:#888">0xc0ffee00</span> in <span style="color:#aaa">http_dispatch</span> ()</div>
+        <div><span class="frame">#3</span>  <span style="color:#888">0xfeedface</span> in <span style="color:#aaa">handle_GET</span> (self=0x...)</div>
+        <div><span class="frame">#4</span>  <span style="color:#888">0x8badf00d</span> in <span style="color:#aaa">serve_forever</span> ()</div>
+        <div><span class="frame">#5</span>  <span style="color:#888">0xbadc0ded</span> in <span style="color:#aaa">__libc_start_main</span> ()</div>
+      </div>
+      <hr class="div">
+      <div class="dump-block">
+        <div><span class="addr">0xffff0000:</span>  4e 4f 54 20  46 4f 55 4e  44 00 00 00  <span class="highlight">?? ?? ?? ??</span></div>
+        <div><span class="addr">0xffff0010:</span>  00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00</div>
+        <div><span class="addr">0xffff0020:</span>  <span class="highlight">** ** ** **  ** ** ** **</span>  00 00 00 00  00 00 00 00</div>
+        <div><span class="addr">0xffff0030:</span>  00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">◈ REGISTER STATE</div>
+    <div class="panel-body">
+      <div class="row"><span class="label">RIP</span><span class="value" style="color:#c0392b">0x0000000000000000</span></div>
+      <div class="row"><span class="label">RSP</span><span class="value dim">0xffff800000000000</span></div>
+      <div class="row"><span class="label">RBP</span><span class="value dim">0xffff800000000000</span></div>
+      <div class="row"><span class="label">RAX</span><span class="value dim">0x0000000000000194</span></div>
+      <div class="row"><span class="label">RBX</span><span class="value dim">0x0000000000000000</span></div>
+      <div class="row"><span class="label">RCX</span><span class="value dim">0x0000000000000000</span></div>
+      <div class="row"><span class="label">CS</span><span class="value dim">0x0033</span></div>
+      <div class="row"><span class="label">EFLAGS</span><span class="value dim">0x0000000000010246</span></div>
+      <hr class="div">
+      <a href="/" class="go-back">[ JUMP TO SAFE ADDRESS: / ]</a>
+    </div>
+  </div>
+
+</div>
+
+<div class="aui-footer">
+  SEGMENTATION FAULT (CORE DUMPED) <span class="sep">|</span> THE PAGE YOU REQUESTED DOES NOT EXIST IN THIS ADDRESS SPACE
+</div>
+
+</body>
+</html>

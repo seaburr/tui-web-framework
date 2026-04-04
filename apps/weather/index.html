@@ -179,13 +179,14 @@ function render(data) {
   // Header
   const city  = (loc.city  || '').toUpperCase();
   const state = (loc.state || '').toUpperCase();
+  const cosmicSuffix = ', USA, NORTH AMERICA, EARTH, ORION SPUR, MILKY WAY GALAXY';
   document.title = `WEATHER // ${city}, ${state}`;
-  $('location-label').textContent = `${city}, ${state}  //  ${loc.zip}`;
-  set('location-detail', `LOCATION: ${city}, ${state}`);
+  $('location-label').textContent = `${city}, ${state}${cosmicSuffix}  //  ${loc.zip}`;
+  set('location-detail', `LOCATION: ${city}, ${state}${cosmicSuffix}`);
 
   // Location panel
   set('city-hero', city);
-  set('state-hero', state);
+  set('state-hero', state + cosmicSuffix);
   set('zip-display', loc.zip);
   set('lat',     loc.lat != null ? loc.lat.toFixed(4) + '°' : '—');
   set('lon',     loc.lon != null ? loc.lon.toFixed(4) + '°' : '—');

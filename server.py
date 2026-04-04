@@ -122,7 +122,11 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, "text/plain", body.encode())
             return
 
-        self._send(404, "text/plain", b"Not found")
+        page_404 = BASE_DIR / "404.html"
+        if page_404.exists():
+            self._send(404, "text/html", _read_static(page_404))
+        else:
+            self._send(404, "text/plain", b"Not found")
 
     def _send(self, status: int, content_type: str, body: bytes,
               extra: dict | None = None) -> None:

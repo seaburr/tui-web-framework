@@ -1,0 +1,11 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./artemis-ui.css:/app/artemis-ui.css
+      - ./server.py:/app/server.py
+      - ./lib.py:/app/lib.py
+      - ./404.html:/app/404.html
+      - ./apps:/app/apps
