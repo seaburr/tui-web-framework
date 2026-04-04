@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PALEONTOLOGY DATABASE</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/artemis-ui.css">
+  <style>
+    .fact-text {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 13px;
+      color: #aaa;
+      line-height: 1.7;
+      padding: 4px 0;
+    }
+    .next-btn {
+      display: block;
+      width: 100%;
+      margin-top: 14px;
+      padding: 10px 0;
+      background: none;
+      border: 1px solid #333;
+      color: #888;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 2px;
+      cursor: pointer;
+      text-align: center;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .next-btn:hover {
+      border-color: #888;
+      color: #ccc;
+    }
+    .next-btn:active {
+      color: #fff;
+      border-color: #aaa;
+    }
+    .diet-CARNIVORE { color: #c0392b; }
+    .diet-HERBIVORE { color: #27ae60; }
+    .diet-OMNIVORE  { color: #e67e22; }
+  </style>
+</head>
+<body>
+
+<div class="aui-header">
+  ◄ PALEONTOLOGY DATABASE ►<span class="blink">_</span>
+</div>
+<div class="aui-subheader" id="subheader">SPECIMEN RECORD — LOADING...</div>
+
+<div class="aui-statusbar">
+  <span id="conn-status" class="aui-conn loading">◉ INITIALIZING...</span>
+  <span id="record-counter">RECORD: — / —</span>
+  <span id="last-updated">LAST QUERY: —</span>
+</div>
+
+<div class="aui-refresh-bar"><div id="refresh-fill" class="aui-refresh-fill" style="width:0%"></div></div>
+
+<div class="aui-grid" id="grid">
+
+  <!-- PANEL: SPECIMEN ID -->
+  <div class="panel">
+    <div class="panel-title">◈ SPECIMEN IDENTIFICATION</div>
+    <div class="panel-body">
+      <div class="hero-metric">
+        <span class="hero-value" style="font-size:32px;line-height:1.1" id="dino-name">—</span>
+      </div>
+      <div style="text-align:center;margin-bottom:10px">
+        <span class="dim" style="font-size:12px;letter-spacing:1px" id="latin-name">—</span>
+      </div>
+      <div style="text-align:center;margin-bottom:8px">
+        <span class="badge" id="diet-badge">—</span>
+      </div>
+      <hr class="div">
+      <div class="row">
+        <span class="label">PERIOD</span>
+        <span class="value" id="period">—</span>
+      </div>
+      <div class="row">
+        <span class="label">HEIGHT</span>
+        <span class="value" id="height">—</span>
+      </div>
+      <div class="row">
+        <span class="label">DIET</span>
+        <span class="value" id="diet-detail">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: FIELD NOTES -->
+  <div class="panel">
+    <div class="panel-title">◈ FIELD NOTES</div>
+    <div class="panel-body">
+      <p class="fact-text" id="fact-text">—</p>
+      <hr class="div">
+      <div class="row">
+        <span class="label">DATABASE</span>
+        <span class="value dim">PALEO ARCHIVE v1.0</span>
+      </div>
+      <div class="row">
+        <span class="label">RECORDS</span>
+        <span class="value dim" id="total-records">—</span>
+      </div>
+      <button class="next-btn" id="next-btn" onclick="loadRandom()">
+        [ NEXT SPECIMEN → ]
+      </button>
+    </div>
+  </div>
+
+  <!-- PANEL: TIMELINE -->
+  <div class="panel">
+    <div class="panel-title">◈ GEOLOGICAL TIMELINE</div>
+    <div class="panel-body" id="timeline-body">
+      <!-- populated by JS -->
+    </div>
+  </div>
+
+</div>
+
+<div class="aui-footer">
+  DATA: PRE-CANNED PALEONTOLOGY ARCHIVE <span class="sep">|</span> 83 SPECIMENS ON FILE
+</div>
+
+<script>
+const $   = id => document.getElementById(id);
+const set = (id, v) => { const el = $(id); if (el) el.textContent = v ?? '—'; };
+
+function setStatus(cls, msg) {
+  const el = $('conn-status');
+  el.className = 'aui-conn ' + cls;
+  el.textContent = '◉ ' + msg;
+}
+
+const ERAS = [
+  { name: 'TRIASSIC',     start: 252, end: 201, color: '#8e44ad' },
+  { name: 'JURASSIC',     start: 201, end: 145, color: '#2980b9' },
+  { name: 'CRETACEOUS',   start: 145, end: 66,  color: '#27ae60' },
+  { name: 'K-PG BOUNDARY',start: 66,  end: 65,  color: '#c0392b' },
+];
+
+// Extract the start MYA from a period string like "Late Cretaceous (68–66 MYA)"
+function parseMya(periodStr) {
+  const m = periodStr.match(/\((\d+(?:\.\d+)?)/);
+  return m ? parseFloat(m[1]) : null;
+}
+
+function buildTimeline(periodStr) {
+  const body = $('timeline-body');
+  body.innerHTML = '';
+  const myaStart = parseMya(periodStr);
+
+  const eras = [
+    { name: 'TRIASSIC',   start: 252, end: 201 },
+    { name: 'EARLY JUR.', start: 201, end: 174 },
+    { name: 'MID JUR.',   start: 174, end: 163 },
+    { name: 'LATE JUR.',  start: 163, end: 145 },
+    { name: 'EARLY CRET.',start: 145, end: 100 },
+    { name: 'LATE CRET.', start: 100, end: 66  },
+    { name: 'K-PG',       start: 66,  end: 66  },
+  ];
+
+  const totalSpan = 252 - 66;
+
+  for (const era of eras) {
+    const isActive = myaStart !== null && myaStart <= era.start && myaStart >= era.end;
+    const pct = Math.max(2, Math.round(((era.start - era.end) / totalSpan) * 100));
+
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.style.cssText = 'align-items:center;gap:8px;margin-bottom:4px';
+
+    const label = document.createElement('span');
+    label.className = 'label';
+    label.style.cssText = 'width:90px;flex-shrink:0;font-size:11px';
+    label.textContent = era.name;
+
+    const barWrap = document.createElement('div');
+    barWrap.style.cssText = 'flex:1;height:12px;background:#111;border:1px solid #222;position:relative';
+
+    const bar = document.createElement('div');
+    bar.style.cssText = `
+      width:${pct}%;
+      height:100%;
+      background:${isActive ? '#888' : '#222'};
+      border-right:${isActive ? '2px solid #ccc' : 'none'};
+      position:absolute; left:0; top:0;
+    `;
+
+    const mya = document.createElement('span');
+    mya.className = 'dim';
+    mya.style.cssText = 'font-size:10px;flex-shrink:0;width:40px;text-align:right';
+    mya.textContent = era.start + 'M';
+
+    barWrap.appendChild(bar);
+    row.appendChild(label);
+    row.appendChild(barWrap);
+    row.appendChild(mya);
+    body.appendChild(row);
+  }
+
+  // Divider + active period annotation
+  const hr = document.createElement('hr');
+  hr.className = 'div';
+  body.appendChild(hr);
+
+  const note = document.createElement('div');
+  note.className = 'row';
+  note.innerHTML =
+    `<span class="label">ACTIVE ERA</span>` +
+    `<span class="value" id="active-era-label">${periodStr}</span>`;
+  body.appendChild(note);
+
+  const extinction = document.createElement('div');
+  extinction.className = 'row';
+  extinction.style.marginTop = '8px';
+  extinction.innerHTML =
+    `<span class="label" style="width:100%;color:#555;font-size:11px">` +
+    `K-PG MASS EXTINCTION: 66 MYA — NON-AVIAN DINOSAURS: TERMINATED` +
+    `</span>`;
+  body.appendChild(extinction);
+}
+
+async function loadRandom() {
+  setStatus('loading', 'QUERYING ARCHIVE...');
+  $('refresh-fill').style.width = '50%';
+
+  try {
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10000);
+    const res   = await fetch('/api/dino/random', { cache: 'no-store', signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    render(data);
+    setStatus('ok', 'ONLINE');
+  } catch (e) {
+    setStatus('err', 'ERROR: ' + e.message);
+  }
+
+  $('refresh-fill').style.width = '0%';
+}
+
+function render(data) {
+  const name = (data.name || '').toUpperCase();
+  document.title = `PALEO DB // ${name}`;
+  set('subheader', `SPECIMEN RECORD — ${name}`);
+
+  set('dino-name', name);
+  set('latin-name', data.latin || '—');
+  set('period',     (data.period  || '—').toUpperCase());
+  set('height',     (data.height  || '—').toUpperCase());
+  set('fact-text',  data.fact     || '—');
+  set('total-records', data.total ? `${data.total} SPECIMENS ON FILE` : '—');
+  set('last-updated', 'LAST QUERY: ' + new Date().toLocaleTimeString());
+
+  // Diet badge
+  const badge     = $('diet-badge');
+  const dietClass = 'diet-' + (data.diet || '');
+  badge.textContent = data.diet || '—';
+  badge.className   = 'badge ' + dietClass;
+  const dietEl = $('diet-detail');
+  dietEl.textContent = data.diet || '—';
+  dietEl.className   = 'value ' + dietClass;
+
+  // Record counter
+  set('record-counter', data.total ? `RECORDS: ${data.total} ON FILE` : 'RECORD: —');
+
+  // Timeline
+  buildTimeline((data.period || '').toUpperCase());
+}
+
+// Boot
+loadRandom();
+</script>
+</body>
+</html>
