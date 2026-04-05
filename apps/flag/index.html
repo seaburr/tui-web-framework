@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WORLD FLAGS DATABASE</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/artemis-ui.css">
+  <style>
+    .flag-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 16px 8px;
+    }
+    .flag-wrap svg {
+      max-width: 280px;
+      width: 100%;
+      display: block;
+      /* CRT faded look */
+      filter: sepia(35%) saturate(55%) brightness(68%) contrast(1.05);
+      border: 1px solid #1a3a1a;
+      box-shadow: 0 0 8px rgba(0,255,65,0.08);
+    }
+    .fact-text {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      color: #aaa;
+      line-height: 1.7;
+      padding: 4px 0;
+    }
+    .next-btn {
+      background: transparent;
+      border: 1px solid var(--green-dim);
+      color: var(--green);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 2px;
+      padding: 3px 10px;
+      cursor: pointer;
+      text-shadow: 0 0 4px var(--green-glow);
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .next-btn:hover {
+      border-color: var(--green);
+      background: rgba(0,255,65,0.06);
+    }
+    .country-name-hero {
+      font-family: var(--font-crt);
+      font-size: 38px;
+      line-height: 1.1;
+      text-align: center;
+      color: var(--green);
+      text-shadow: 0 0 10px var(--green-glow), 0 0 20px var(--green-glow);
+      letter-spacing: 2px;
+      padding: 6px 0 4px;
+    }
+    .lang-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      justify-content: flex-end;
+    }
+    .lang-tag {
+      font-size: 10px;
+      border: 1px solid #2a4a2a;
+      color: var(--amber);
+      padding: 1px 5px;
+      background: rgba(255,176,0,0.05);
+    }
+  </style>
+</head>
+<body>
+
+<div class="aui-header">
+  WORLD FLAGS DATABASE<span class="blink">_</span>
+</div>
+<div class="aui-subheader" id="subheader">NATION RECORD — LOADING...</div>
+
+<div class="aui-statusbar">
+  <span id="conn-status" class="aui-conn loading">◉ INITIALIZING...</span>
+  <span id="record-counter">RECORD: — / 20</span>
+  <span id="last-query">LAST QUERY: —</span>
+  <button class="next-btn" onclick="loadRandom()">[ NEXT COUNTRY ]</button>
+</div>
+
+<div class="aui-refresh-bar"><div id="refresh-fill" class="aui-refresh-fill" style="width:0%"></div></div>
+
+<div class="aui-grid" id="grid">
+
+  <!-- PANEL: NATION RECORD -->
+  <div class="panel">
+    <div class="panel-title">◈ NATION IDENTIFICATION</div>
+    <div class="panel-body">
+      <div class="country-name-hero" id="country-name">—</div>
+      <div style="text-align:center;margin-bottom:10px">
+        <span class="dim" style="font-size:11px;letter-spacing:3px" id="continent">—</span>
+      </div>
+      <hr class="div">
+      <div class="row">
+        <span class="label">CAPITAL</span>
+        <span class="value" id="capital">—</span>
+      </div>
+      <div class="row">
+        <span class="label">POPULATION</span>
+        <span class="value" id="population">—</span>
+      </div>
+      <div class="row">
+        <span class="label">AREA</span>
+        <span class="value" id="area">—</span>
+      </div>
+      <div class="row">
+        <span class="label">CURRENCY</span>
+        <span class="value" id="currency">—</span>
+      </div>
+      <div class="row" style="align-items:flex-start">
+        <span class="label" style="padding-top:4px">LANGUAGES</span>
+        <div class="lang-list" id="languages"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: FLAG DISPLAY -->
+  <div class="panel">
+    <div class="panel-title">◈ NATIONAL FLAG</div>
+    <div class="panel-body">
+      <div class="flag-wrap">
+        <svg id="flag-svg" viewBox="0 0 300 200" width="100%"></svg>
+      </div>
+      <hr class="div">
+      <div class="row">
+        <span class="label">DATABASE</span>
+        <span class="value dim">VEXILLOLOGY ARCHIVE v1.0</span>
+      </div>
+      <div class="row">
+        <span class="label">NATIONS ON FILE</span>
+        <span class="value dim" id="total-nations">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: FIELD NOTES -->
+  <div class="panel">
+    <div class="panel-title">◈ FIELD NOTES</div>
+    <div class="panel-body">
+      <p class="fact-text" id="fun-fact">—</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="aui-footer">
+  DATA: VEXILLOLOGY ARCHIVE <span class="sep">|</span> PRESS [ NEXT COUNTRY ] OR CLICK ANYWHERE
+</div>
+
+<script>
+const $   = id => document.getElementById(id);
+const set = (id, v) => { const el = $(id); if (el) el.textContent = v ?? '—'; };
+const ns  = 'http://www.w3.org/2000/svg';
+
+function setStatus(cls, msg) {
+  const el = $('conn-status');
+  el.className = 'aui-conn ' + cls;
+  el.textContent = '◉ ' + msg;
+}
+
+// ─── FLAG SVG RENDERER ───────────────────────────────────────────────────────
+function renderFlag(flag) {
+  const svg = $('flag-svg');
+  // Clear existing content
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+  const W = 300, H = 200;
+
+  function el(tag, attrs) {
+    const e = document.createElementNS(ns, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    svg.appendChild(e);
+    return e;
+  }
+
+  function rect(x, y, w, h, fill) {
+    el('rect', { x, y, width: w, height: h, fill });
+  }
+  function circle(cx, cy, r, fill) {
+    el('circle', { cx, cy, r, fill });
+  }
+  function poly(points, fill) {
+    el('polygon', { points, fill });
+  }
+  function path(d, fill) {
+    el('path', { d, fill });
+  }
+
+  const t = flag.type;
+
+  if (t === 'tricolor_v' || t === 'tricolor_v_emblem') {
+    const w = W / 3;
+    flag.colors.forEach((c, i) => rect(i * w, 0, w, H, c));
+    if (t === 'tricolor_v_emblem') {
+      // Small emblem circle in white center band (simplified eagle for Mexico)
+      circle(W / 2, H / 2, H * 0.12, 'rgba(0,100,50,0.5)');
+      circle(W / 2, H / 2, H * 0.07, '#5B4A28');
+    }
+
+  } else if (t === 'tricolor_h') {
+    const h = H / 3;
+    flag.colors.forEach((c, i) => rect(0, i * h, W, h, c));
+
+  } else if (t === 'bicolor_h') {
+    rect(0, 0, W, H / 2, flag.colors[0]);
+    rect(0, H / 2, W, H / 2, flag.colors[1]);
+
+  } else if (t === 'nordic_cross') {
+    const vx = W * 0.375;   // vertical bar x-centre
+    const bw = H * 0.18;    // bar width
+    rect(0, 0, W, H, flag.bg);
+    // Horizontal bar
+    rect(0, H / 2 - bw / 2, W, bw, flag.cross);
+    // Vertical bar
+    rect(vx - bw / 2, 0, bw, H, flag.cross);
+    // Two-colour cross (Norway): inner stripe in cross2 colour
+    if (flag.cross2) {
+      const iw = bw * 0.5;
+      rect(0, H / 2 - iw / 2, W, iw, flag.cross2);
+      rect(vx - iw / 2, 0, iw, H, flag.cross2);
+    }
+
+  } else if (t === 'sun_disc') {
+    rect(0, 0, W, H, flag.bg);
+    circle(W * (flag.cx || 0.5), H * (flag.cy || 0.5),
+           Math.min(W, H) * (flag.r || 0.3), flag.disc);
+
+  } else if (t === 'swiss_cross') {
+    // Square flag — use 200×200 portion centred in 300×200
+    const S = H; // 200 — square side
+    const ox = (W - S) / 2; // x offset to centre
+    rect(ox, 0, S, S, '#FF0000');
+    // White cross: arms are 1/5 of flag width, cross span is 3/5
+    const arm = S / 5;
+    const span = S * 3 / 5;
+    const cx = ox + S / 2, cy = S / 2;
+    rect(cx - arm / 2, cy - span / 2, arm, span, '#FFFFFF'); // vertical
+    rect(cx - span / 2, cy - arm / 2, span, arm, '#FFFFFF'); // horizontal
+
+  } else if (t === 'brazil') {
+    // Green background
+    rect(0, 0, W, H, '#009C3B');
+    // Yellow diamond
+    const mx = W / 2, my = H / 2;
+    const dw = W * 0.72, dh = H * 0.72;
+    poly(
+      `${mx},${my - dh / 2} ${mx + dw / 2},${my} ${mx},${my + dh / 2} ${mx - dw / 2},${my}`,
+      '#FFDF00'
+    );
+    // Blue disc
+    circle(mx, my, H * 0.28, '#002776');
+    // White band across disc (simplified)
+    rect(mx - H * 0.28, my - H * 0.045, H * 0.56, H * 0.09, 'rgba(255,255,255,0.85)');
+
+  } else if (t === 'canada') {
+    // Red - White - Red (1:2:1)
+    rect(0, 0, W * 0.25, H, '#FF0000');
+    rect(W * 0.75, 0, W * 0.25, H, '#FF0000');
+    rect(W * 0.25, 0, W * 0.5, H, '#FFFFFF');
+    // Simplified maple leaf — 11-point path centred in white band
+    const cx = W / 2, cy = H / 2, r = H * 0.32;
+    path(
+      `M ${cx},${cy - r}
+       L ${cx - r * 0.12},${cy - r * 0.45}
+       L ${cx - r * 0.48},${cy - r * 0.35}
+       L ${cx - r * 0.25},${cy - r * 0.05}
+       L ${cx - r * 0.5},${cy + r * 0.2}
+       L ${cx - r * 0.15},${cy + r * 0.1}
+       L ${cx - r * 0.1},${cy + r * 0.48}
+       L ${cx},${cy + r * 0.3}
+       L ${cx + r * 0.1},${cy + r * 0.48}
+       L ${cx + r * 0.15},${cy + r * 0.1}
+       L ${cx + r * 0.5},${cy + r * 0.2}
+       L ${cx + r * 0.25},${cy - r * 0.05}
+       L ${cx + r * 0.48},${cy - r * 0.35}
+       L ${cx + r * 0.12},${cy - r * 0.45}
+       Z`,
+      '#FF0000'
+    );
+
+  } else if (t === 'stripe_sun') {
+    // Argentina: horizontal stripes + sun
+    const h = H / 3;
+    flag.colors.forEach((c, i) => rect(0, i * h, W, h, c));
+    // Sun of May — simplified as circle + rays
+    const cx = W / 2, cy = H / 2, sr = H * 0.14;
+    circle(cx, cy, sr, flag.sun);
+    // 16 rays (alternating straight and wavy, simplified as lines)
+    for (let i = 0; i < 16; i++) {
+      const a = (i * Math.PI * 2) / 16;
+      const r1 = sr * 1.15, r2 = sr * 1.75;
+      const x1 = cx + Math.cos(a) * r1, y1 = cy + Math.sin(a) * r1;
+      const x2 = cx + Math.cos(a) * r2, y2 = cy + Math.sin(a) * r2;
+      const ray = document.createElementNS(ns, 'line');
+      ray.setAttribute('x1', x1); ray.setAttribute('y1', y1);
+      ray.setAttribute('x2', x2); ray.setAttribute('y2', y2);
+      ray.setAttribute('stroke', flag.sun);
+      ray.setAttribute('stroke-width', i % 2 === 0 ? 3 : 2);
+      svg.appendChild(ray);
+    }
+
+  } else if (t === 'stripe_wheel') {
+    // India: horizontal stripes + Ashoka Chakra
+    const h = H / 3;
+    flag.colors.forEach((c, i) => rect(0, i * h, W, h, c));
+    const cx = W / 2, cy = H / 2;
+    const wr = H * 0.13;
+    circle(cx, cy, wr, flag.wheel);
+    circle(cx, cy, wr * 0.85, '#FFFFFF');
+    circle(cx, cy, wr * 0.12, flag.wheel);
+    // 24 spokes
+    for (let i = 0; i < 24; i++) {
+      const a = (i * Math.PI * 2) / 24;
+      const spoke = document.createElementNS(ns, 'line');
+      spoke.setAttribute('x1', cx + Math.cos(a) * wr * 0.12);
+      spoke.setAttribute('y1', cy + Math.sin(a) * wr * 0.12);
+      spoke.setAttribute('x2', cx + Math.cos(a) * wr * 0.85);
+      spoke.setAttribute('y2', cy + Math.sin(a) * wr * 0.85);
+      spoke.setAttribute('stroke', flag.wheel);
+      spoke.setAttribute('stroke-width', 1.2);
+      svg.appendChild(spoke);
+    }
+
+  } else if (t === 'kenya') {
+    // Kenya: black / red / green horizontal with white dividers + Maasai shield
+    rect(0, 0, W, H / 3, '#006600');
+    rect(0, H / 3, W, H / 3, '#CC0001');
+    rect(0, H * 2 / 3, W, H / 3, '#000000');
+    // White thin dividers
+    rect(0, H / 3 - 3, W, 6, '#FFFFFF');
+    rect(0, H * 2 / 3 - 3, W, 6, '#FFFFFF');
+    // Simplified Maasai shield (oval shape)
+    const cx = W / 2, cy = H / 2;
+    path(`M ${cx} ${cy - H * 0.35} C ${cx + W * 0.08} ${cy - H * 0.2} ${cx + W * 0.08} ${cy + H * 0.2} ${cx} ${cy + H * 0.35} C ${cx - W * 0.08} ${cy + H * 0.2} ${cx - W * 0.08} ${cy - H * 0.2} Z`,
+      '#FFFFFF');
+    path(`M ${cx} ${cy - H * 0.28} C ${cx + W * 0.05} ${cy - H * 0.14} ${cx + W * 0.05} ${cy + H * 0.14} ${cx} ${cy + H * 0.28} C ${cx - W * 0.05} ${cy + H * 0.14} ${cx - W * 0.05} ${cy - H * 0.14} Z`,
+      '#CC0001');
+    // Spear (vertical line through shield)
+    const spear = document.createElementNS(ns, 'line');
+    spear.setAttribute('x1', cx); spear.setAttribute('y1', cy - H * 0.43);
+    spear.setAttribute('x2', cx); spear.setAttribute('y2', cy + H * 0.43);
+    spear.setAttribute('stroke', '#000000');
+    spear.setAttribute('stroke-width', 4);
+    svg.appendChild(spear);
+
+  } else if (t === 'crescent') {
+    // Turkey: red background + white crescent + star
+    rect(0, 0, W, H, flag.bg);
+    circle(W * 0.4, H * 0.5, H * 0.32, flag.symbol);
+    circle(W * 0.47, H * 0.5, H * 0.26, flag.bg);
+    const scx = W * 0.58, scy = H * 0.5, sr2 = H * 0.1;
+    const starPts = [];
+    for (let i = 0; i < 10; i++) {
+      const a = (i * Math.PI) / 5 - Math.PI / 2;
+      const r = i % 2 === 0 ? sr2 : sr2 * 0.4;
+      starPts.push(`${scx + Math.cos(a) * r},${scy + Math.sin(a) * r}`);
+    }
+    poly(starPts.join(' '), flag.symbol);
+
+  } else if (t === 'union_jack') {
+    // UK: blue bg, white+red diagonal crosses (St Andrew + St Patrick), white+red straight cross (St George)
+    rect(0, 0, W, H, '#012169');
+    // St Andrew's cross — white diagonals (broad)
+    for (const [x1,y1,x2,y2] of [[0,0,W,H],[W,0,0,H]]) {
+      const dx = x2-x1, dy = y2-y1, len = Math.sqrt(dx*dx+dy*dy);
+      const nx = -dy/len * 20, ny = dx/len * 20;
+      const pts = `${x1+nx},${y1+ny} ${x2+nx},${y2+ny} ${x2-nx},${y2-ny} ${x1-nx},${y1-ny}`;
+      poly(pts, '#FFFFFF');
+    }
+    // St Patrick's cross — red diagonals (narrow, offset)
+    for (const [x1,y1,x2,y2,offDir] of [[0,0,W,H,1],[W,0,0,H,-1]]) {
+      const dx = x2-x1, dy = y2-y1, len = Math.sqrt(dx*dx+dy*dy);
+      const nx = -dy/len, ny = dx/len;
+      const w1 = 7, off = 6 * offDir;
+      const pts = `${x1+nx*(off+w1)},${y1+ny*(off+w1)} ${x2+nx*(off+w1)},${y2+ny*(off+w1)} ${x2+nx*(off-w1)},${y2+ny*(off-w1)} ${x1+nx*(off-w1)},${y1+ny*(off-w1)}`;
+      poly(pts, '#C8102E');
+    }
+    // St George's cross — white arms
+    rect(0, H/2 - 25, W, 50, '#FFFFFF');
+    rect(W/2 - 25, 0, 50, H, '#FFFFFF');
+    // St George's cross — red arms (narrower)
+    rect(0, H/2 - 16, W, 32, '#C8102E');
+    rect(W/2 - 16, 0, 32, H, '#C8102E');
+
+  } else if (t === 'stars_stripes') {
+    // USA: 13 alternating red/white stripes + blue canton + stars
+    const stripeH = H / 13;
+    for (let i = 0; i < 13; i++) {
+      rect(0, i * stripeH, W, stripeH, i % 2 === 0 ? '#B22234' : '#FFFFFF');
+    }
+    // Blue canton (upper left): 7 stripes tall, ~40% wide
+    const cw = W * 0.40, ch = stripeH * 7;
+    rect(0, 0, cw, ch, '#3C3B6E');
+    // 50 stars in 9×6 and 8×5 alternating rows — simplified as dots
+    const rows = [6,5,6,5,6,5,6,5,6], cols = [5,4,5,4,5,4,5,4,5];
+    // Draw 9 rows of stars (50 total: 6+4+6+4+6+4+6+4+6 wait that's wrong)
+    // 50 stars: 5 rows of 6 + 4 rows of 5 = 30+20=50
+    const starRows = [{n:6,odd:false},{n:5,odd:true},{n:6,odd:false},{n:5,odd:true},
+                      {n:6,odd:false},{n:5,odd:true},{n:6,odd:false},{n:5,odd:true},{n:6,odd:false}];
+    // Wait, 5×6 + 4×5 = 50. Use 9 rows total.
+    const rowCount = 9;
+    const rowH2 = ch / (rowCount + 1);
+    starRows.forEach((row, ri) => {
+      const y = rowH2 * (ri + 1);
+      const colW = cw / (row.n + 1);
+      const xOff = row.odd ? colW / 2 : 0;
+      for (let ci = 0; ci < row.n; ci++) {
+        const x = colW * (ci + 1) + (row.odd ? colW/2 - colW/2 : 0);
+        // Small 5-pt star
+        const r1 = rowH2 * 0.35, r2 = r1 * 0.4;
+        const sPts = [];
+        for (let k = 0; k < 10; k++) {
+          const a = k * Math.PI / 5 - Math.PI / 2;
+          const r = k % 2 === 0 ? r1 : r2;
+          sPts.push(`${x + Math.cos(a)*r},${y + Math.sin(a)*r}`);
+        }
+        poly(sPts.join(' '), '#FFFFFF');
+      }
+    });
+
+  } else if (t === 'china_stars') {
+    // China: red bg + large yellow star top-left + 4 small stars in arc
+    rect(0, 0, W, H, '#DE2910');
+    function drawStar(cx, cy, r, fill) {
+      const pts = [];
+      for (let i = 0; i < 10; i++) {
+        const a = i * Math.PI / 5 - Math.PI / 2;
+        pts.push(`${cx+Math.cos(a)*(i%2===0?r:r*0.4)},${cy+Math.sin(a)*(i%2===0?r:r*0.4)}`);
+      }
+      poly(pts.join(' '), fill);
+    }
+    drawStar(W*0.17, H*0.28, H*0.13, '#FFDE00');
+    const smallR = H * 0.045;
+    const arcCentres = [[0.32,0.12],[0.38,0.22],[0.38,0.36],[0.32,0.46]];
+    arcCentres.forEach(([ax,ay]) => drawStar(W*ax, H*ay, smallR, '#FFDE00'));
+
+  } else if (t === 'taegukgi') {
+    // South Korea: white bg + taeguk circle + 4 trigrams
+    rect(0, 0, W, H, '#FFFFFF');
+    const cx = W/2, cy = H/2, r = H*0.28;
+    // Red half (top)
+    el('path', {d:`M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy} A ${r/2} ${r/2} 0 0 1 ${cx} ${cy} A ${r/2} ${r/2} 0 0 0 ${cx-r} ${cy} Z`, fill:'#CD2E3A'});
+    // Blue half (bottom)
+    el('path', {d:`M ${cx-r} ${cy} A ${r} ${r} 0 0 0 ${cx+r} ${cy} A ${r/2} ${r/2} 0 0 0 ${cx} ${cy} A ${r/2} ${r/2} 0 0 1 ${cx-r} ${cy} Z`, fill:'#0047A0'});
+    // 4 trigrams (simplified as sets of 3 bars at corners)
+    function trigram(x, y, angle, bars) {
+      const g = document.createElementNS(ns, 'g');
+      g.setAttribute('transform', `translate(${x},${y}) rotate(${angle})`);
+      const bw = r*0.55, bh = r*0.095, gap = r*0.115;
+      bars.forEach((solid, i) => {
+        const yb = (i-1) * (bh+gap);
+        if (solid) {
+          const b = document.createElementNS(ns, 'rect');
+          b.setAttribute('x', -bw/2); b.setAttribute('y', yb);
+          b.setAttribute('width', bw); b.setAttribute('height', bh);
+          b.setAttribute('fill', '#000000');
+          g.appendChild(b);
+        } else {
+          // Broken bar (two halves)
+          for (const xOff of [-bw/2, bw/2-bw*0.42]) {
+            const b = document.createElementNS(ns, 'rect');
+            b.setAttribute('x', xOff); b.setAttribute('y', yb);
+            b.setAttribute('width', bw*0.42); b.setAttribute('height', bh);
+            b.setAttribute('fill', '#000000');
+            g.appendChild(b);
+          }
+        }
+      });
+      svg.appendChild(g);
+    }
+    trigram(cx-r*1.35, cy-r*0.75, -45, [true,true,true]);   // ☰ top-left
+    trigram(cx+r*1.35, cy-r*0.75,  45, [false,false,false]); // ☷ top-right
+    trigram(cx-r*1.35, cy+r*0.75,  45, [true,false,true]);   // ☵ bottom-left
+    trigram(cx+r*1.35, cy+r*0.75, -45, [false,true,false]);  // ☲ bottom-right
+
+  } else if (t === 'australia') {
+    // Australia: dark blue bg + Union Jack canton + Commonwealth star + Southern Cross
+    rect(0, 0, W, H, '#00008B');
+    // Simplified Union Jack in top-left canton (40% wide, 50% tall)
+    const cw2 = W*0.40, ch2 = H*0.50;
+    rect(0, 0, cw2, ch2, '#012169');
+    for (const [x1,y1,x2,y2] of [[0,0,cw2,ch2],[cw2,0,0,ch2]]) {
+      const dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);
+      const nx=-dy/len*8,ny=dx/len*8;
+      poly(`${x1+nx},${y1+ny} ${x2+nx},${y2+ny} ${x2-nx},${y2-ny} ${x1-nx},${y1-ny}`,'#FFFFFF');
+    }
+    rect(0, ch2/2-8, cw2, 16, '#FFFFFF'); rect(cw2/2-8, 0, 16, ch2, '#FFFFFF');
+    rect(0, ch2/2-5, cw2, 10, '#C8102E'); rect(cw2/2-5, 0, 10, ch2, '#C8102E');
+    // Commonwealth star (7-pt) below canton
+    function star7(cx, cy, r) {
+      const pts = [];
+      for (let i = 0; i < 14; i++) {
+        const a = i*Math.PI/7 - Math.PI/2;
+        pts.push(`${cx+Math.cos(a)*(i%2===0?r:r*0.4)},${cy+Math.sin(a)*(i%2===0?r:r*0.4)}`);
+      }
+      poly(pts.join(' '),'#FFFFFF');
+    }
+    star7(W*0.20, H*0.75, H*0.10);
+    // Southern Cross (4 large + 1 small 5-pt stars)
+    function star5(cx, cy, r) {
+      const pts = [];
+      for (let i = 0; i < 10; i++) {
+        const a = i*Math.PI/5 - Math.PI/2;
+        pts.push(`${cx+Math.cos(a)*(i%2===0?r:r*0.4)},${cy+Math.sin(a)*(i%2===0?r:r*0.4)}`);
+      }
+      poly(pts.join(' '),'#FFFFFF');
+    }
+    star5(W*0.65, H*0.25, H*0.085);
+    star5(W*0.80, H*0.45, H*0.085);
+    star5(W*0.72, H*0.68, H*0.085);
+    star5(W*0.58, H*0.58, H*0.085);
+    star5(W*0.76, H*0.30, H*0.05);  // small epsilon star
+
+  } else if (t === 'south_africa') {
+    // South Africa: green Y-arrow, black left triangle, red top, blue bottom, yellow+white borders
+    rect(0, 0, W, H, '#007A4D');   // green centre band
+    // Red top half
+    poly(`0,0 ${W},0 ${W},${H*0.38} ${W*0.45},${H*0.5} ${W*0.45},${H*0.5} 0,${H*0.25} 0,0`, '#DE3831');
+    // Blue bottom half
+    poly(`0,${H} ${W},${H} ${W},${H*0.62} ${W*0.45},${H*0.5} 0,${H*0.75}`, '#002395');
+    // Black left triangle
+    poly(`0,0 0,${H} ${W*0.32},${H*0.5}`, '#000000');
+    // Yellow border on green Y
+    poly(`0,0 0,${H} ${W*0.38},${H*0.5} 0,0`, '#FFB612');
+    poly(`0,0 ${W*0.32},${H*0.5} 0,${H} ${W*0.30},${H*0.5}`, '#000000');
+    // Rebuild the Y properly:
+    // Green horizontal band in centre
+    poly(`${W*0.38},${H*0.38} ${W},${H*0.38} ${W},${H*0.62} ${W*0.38},${H*0.62} ${W*0.32},${H*0.5}`, '#007A4D');
+    // Yellow outline of Y (thick)
+    poly(`0,0 0,${H*0.32} ${W*0.38},${H*0.46} ${W},${H*0.46} ${W},${H*0.41} ${W*0.42},${H*0.41} ${W*0.34},${H*0.5} ${W*0.42},${H*0.59} ${W},${H*0.59} ${W},${H*0.54} ${W*0.38},${H*0.54} 0,${H*0.68} 0,${H} ${W*0.32},${H*0.5}`, '#FFB612');
+    // Black triangle again on top
+    poly(`0,0 0,${H} ${W*0.28},${H*0.5}`, '#000000');
+
+  } else if (t === 'portugal') {
+    // Portugal: 2:3 split green/red with simplified coat of arms circle
+    rect(0, 0, W*0.4, H, '#006600');
+    rect(W*0.4, 0, W*0.6, H, '#FF0000');
+    // Simplified armillary sphere / shield: yellow circle outline
+    circle(W*0.4, H*0.5, H*0.22, '#FFCC00');
+    circle(W*0.4, H*0.5, H*0.17, '#FFFFFF');
+    circle(W*0.4, H*0.5, H*0.08, '#003399');
+
+  } else if (t === 'bicolor_v') {
+    // Nigeria-style: green / white / green vertical
+    const w3 = W / 3;
+    rect(0, 0, w3, H, flag.colors[0]);
+    rect(w3, 0, w3, H, flag.colors[1]);
+    rect(w3*2, 0, w3, H, flag.colors[2] || flag.colors[0]);
+
+  } else if (t === 'thailand') {
+    // Thailand: red / white / blue(double) / white / red  ratios 1:1:2:1:1
+    const th = H / 6;
+    rect(0, 0,    W, th,   '#A51931');
+    rect(0, th,   W, th,   '#F4F5F8');
+    rect(0, th*2, W, th*2, '#2D2A4A');
+    rect(0, th*4, W, th,   '#F4F5F8');
+    rect(0, th*5, W, th,   '#A51931');
+
+  } else if (t === 'egypt') {
+    // Egypt: red / white / black horizontal + golden eagle of Saladin in white band
+    const eh = H / 3;
+    rect(0, 0,    W, eh, '#CE1126');
+    rect(0, eh,   W, eh, '#FFFFFF');
+    rect(0, eh*2, W, eh, '#000000');
+    // Simplified eagle silhouette (head + spread wings)
+    const ecx = W/2, ecy = H/2;
+    // Wings (two arcs)
+    path(`M ${ecx-W*0.22} ${ecy+eh*0.1} Q ${ecx-W*0.12} ${ecy-eh*0.35} ${ecx} ${ecy-eh*0.05} Q ${ecx+W*0.12} ${ecy-eh*0.35} ${ecx+W*0.22} ${ecy+eh*0.1} L ${ecx+W*0.14} ${ecy+eh*0.2} Q ${ecx} ${ecy+eh*0.0} ${ecx-W*0.14} ${ecy+eh*0.2} Z`, '#C09300');
+    // Body + head
+    circle(ecx, ecy-eh*0.05, H*0.05, '#C09300');
+    rect(ecx-W*0.03, ecy-eh*0.05, W*0.06, eh*0.28, '#C09300');
+
+  } else {
+    // Fallback: grey placeholder
+    rect(0, 0, W, H, '#1a2a1a');
+    const txt = document.createElementNS(ns, 'text');
+    txt.setAttribute('x', W / 2); txt.setAttribute('y', H / 2 + 6);
+    txt.setAttribute('text-anchor', 'middle');
+    txt.setAttribute('fill', '#3a5a3a');
+    txt.setAttribute('font-family', 'monospace');
+    txt.setAttribute('font-size', '14');
+    txt.textContent = '[FLAG DATA UNAVAILABLE]';
+    svg.appendChild(txt);
+  }
+}
+
+// ─── FETCH & RENDER ──────────────────────────────────────────────────────────
+async function loadRandom() {
+  setStatus('loading', 'QUERYING ARCHIVE...');
+  $('refresh-fill').style.width = '50%';
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10000);
+    const res = await fetch('/api/flag/random', { cache: 'no-store', signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    render(data);
+    setStatus('ok', 'ONLINE');
+  } catch (e) {
+    setStatus('err', 'ERROR: ' + e.message);
+  }
+  $('refresh-fill').style.width = '0%';
+}
+
+function render(data) {
+  const name = (data.name || '').toUpperCase();
+  document.title = `FLAGS DB // ${name}`;
+  set('subheader', `NATION RECORD — ${name}`);
+  set('country-name', name);
+  set('continent', (data.continent || '—').toUpperCase());
+  set('capital', (data.capital || '—').toUpperCase());
+  set('population', (data.population || '—').toUpperCase());
+  set('area', data.area || '—');
+  set('currency', data.currency || '—');
+  set('fun-fact', data.fun_fact || '—');
+  set('record-counter', `RECORD: ${(data.index ?? 0) + 1} / ${data.total ?? 20}`);
+  set('total-nations', `${data.total ?? 20} NATIONS ON FILE`);
+  set('last-query', 'LAST QUERY: ' + new Date().toLocaleTimeString());
+
+  // Languages
+  const langWrap = $('languages');
+  langWrap.innerHTML = '';
+  const langs = data.languages || ['—'];
+  langs.forEach(l => {
+    const tag = document.createElement('span');
+    tag.className = 'lang-tag';
+    tag.textContent = l.toUpperCase();
+    langWrap.appendChild(tag);
+  });
+
+  // Flag
+  renderFlag(data.flag || {});
+}
+
+// Click anywhere (outside button) to load next
+document.addEventListener('click', e => {
+  if (e.target.tagName !== 'BUTTON') loadRandom();
+});
+
+loadRandom();
+</script>
+</body>
+</html>

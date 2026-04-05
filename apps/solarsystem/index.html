@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SOLAR SYSTEM DATABASE</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/artemis-ui.css">
+  <style>
+    .planet-art {
+      font-family: 'Share Tech Mono', 'Courier New', monospace;
+      font-size: 15px;
+      line-height: 1.5;
+      color: var(--green-dim);
+      text-shadow: 0 0 6px var(--green-glow);
+      text-align: center;
+      padding: 12px 0 8px;
+      white-space: pre;
+      letter-spacing: 1px;
+    }
+    .planet-art.large { font-size: 17px; }
+    .planet-art.small { font-size: 13px; }
+    .size-bar-wrap {
+      height: 10px;
+      background: #0a1a0a;
+      border: 1px solid #1a3a1a;
+      margin: 4px 0 2px;
+      position: relative;
+      overflow: hidden;
+    }
+    .size-bar-fill {
+      height: 100%;
+      background: var(--green-dim);
+      box-shadow: 0 0 4px var(--green-glow);
+    }
+    .next-btn {
+      background: transparent;
+      border: 1px solid var(--green-dim);
+      color: var(--green);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 2px;
+      padding: 3px 10px;
+      cursor: pointer;
+      text-shadow: 0 0 4px var(--green-glow);
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .next-btn:hover {
+      border-color: var(--green);
+      background: rgba(0,255,65,0.06);
+    }
+    .type-badge {
+      font-size: 10px;
+      letter-spacing: 2px;
+      padding: 2px 6px;
+      border: 1px solid #2a4a2a;
+      color: var(--amber);
+      background: rgba(255,176,0,0.06);
+      text-shadow: 0 0 4px rgba(255,176,0,0.4);
+    }
+    .fact-text {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      color: #aaa;
+      line-height: 1.7;
+      padding: 4px 0;
+    }
+    .orbit-ring {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border: 1px solid var(--green-dim);
+      border-radius: 50%;
+      margin-right: 3px;
+      vertical-align: middle;
+    }
+    .orbit-ring.active {
+      background: var(--green);
+      border-color: var(--green);
+      box-shadow: 0 0 4px var(--green-glow);
+    }
+  </style>
+</head>
+<body>
+
+<div class="aui-header">
+  SOLAR SYSTEM DATABASE<span class="blink">_</span>
+</div>
+<div class="aui-subheader" id="subheader">PLANETARY RECORD — LOADING...</div>
+
+<div class="aui-statusbar">
+  <span id="conn-status" class="aui-conn loading">◉ INITIALIZING...</span>
+  <span id="record-counter">BODY: — / 9</span>
+  <span id="last-query">LAST QUERY: —</span>
+  <button class="next-btn" onclick="loadRandom()">[ NEXT PLANET ]</button>
+</div>
+
+<div class="aui-refresh-bar"><div id="refresh-fill" class="aui-refresh-fill" style="width:0%"></div></div>
+
+<div class="aui-grid" id="grid">
+
+  <!-- PANEL: PLANETARY RECORD -->
+  <div class="panel">
+    <div class="panel-title">◈ PLANETARY RECORD</div>
+    <div class="panel-body">
+      <div class="hero-metric">
+        <span class="hero-value" style="font-size:30px;line-height:1.1" id="planet-name">—</span>
+      </div>
+      <div style="text-align:center;margin-bottom:10px">
+        <span class="type-badge" id="planet-type">—</span>
+      </div>
+      <hr class="div">
+      <div class="row">
+        <span class="label">DIAMETER</span>
+        <span class="value" id="diameter">—</span>
+      </div>
+      <div class="row">
+        <span class="label">FROM SUN</span>
+        <span class="value" id="distance">—</span>
+      </div>
+      <div class="row">
+        <span class="label">DISTANCE</span>
+        <span class="value dim" id="distance-km">—</span>
+      </div>
+      <div class="row">
+        <span class="label">MOONS</span>
+        <span class="value" id="moons">—</span>
+      </div>
+      <div class="row">
+        <span class="label">SURFACE TEMP</span>
+        <span class="value" id="surface-temp">—</span>
+      </div>
+      <hr class="div">
+      <div class="row">
+        <span class="label">SIZE RANK</span>
+        <span class="value dim" id="size-rank">— of 9</span>
+      </div>
+      <div class="size-bar-wrap">
+        <div class="size-bar-fill" id="size-bar" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: VISUALIZATION -->
+  <div class="panel">
+    <div class="panel-title">◈ VISUAL REPRESENTATION</div>
+    <div class="panel-body" style="display:flex;flex-direction:column;align-items:center">
+      <pre class="planet-art" id="planet-art">
+      </pre>
+      <hr class="div" style="width:100%">
+      <div style="width:100%">
+        <div class="row">
+          <span class="label">POSITION</span>
+          <span class="value dim" id="orbit-position">—</span>
+        </div>
+        <div style="padding:8px 0 4px;text-align:center" id="orbit-dots">
+        </div>
+        <div class="row" style="margin-top:4px">
+          <span class="label">NOTABLE</span>
+          <span class="value" style="font-size:11px;text-align:right" id="notable">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: ORBITAL DATA -->
+  <div class="panel">
+    <div class="panel-title">◈ ORBITAL &amp; ATMOSPHERIC DATA</div>
+    <div class="panel-body">
+      <div class="row">
+        <span class="label">ORBITAL PERIOD</span>
+        <span class="value" id="orbital-period">—</span>
+      </div>
+      <div class="row">
+        <span class="label">ATMOSPHERE</span>
+        <span class="value" style="font-size:11px;text-align:right" id="atmosphere">—</span>
+      </div>
+      <hr class="div">
+      <div style="margin-bottom:4px">
+        <span class="label">FIELD NOTES</span>
+      </div>
+      <p class="fact-text" id="fun-fact">—</p>
+      <hr class="div">
+      <div class="row">
+        <span class="label">DATABASE</span>
+        <span class="value dim">SOL SYSTEM ARCHIVE v1.0</span>
+      </div>
+      <div class="row">
+        <span class="label">BODIES ON FILE</span>
+        <span class="value dim" id="total-bodies">9 (8 PLANETS + PLUTO)</span>
+      </div>
+      <div class="row">
+        <span class="label">STAR</span>
+        <span class="value dim">SOL — G-TYPE MAIN SEQUENCE</span>
+      </div>
+      <div class="row">
+        <span class="label">GALAXY</span>
+        <span class="value dim">MILKY WAY — ORION ARM</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="aui-footer">
+  DATA: SOLAR SYSTEM ARCHIVE <span class="sep">|</span> PRESS [ NEXT PLANET ] OR CLICK ANYWHERE
+</div>
+
+<script>
+const $   = id => document.getElementById(id);
+const set = (id, v) => { const el = $(id); if (el) el.textContent = v ?? '—'; };
+
+function setStatus(cls, msg) {
+  const el = $('conn-status');
+  el.className = 'aui-conn ' + cls;
+  el.textContent = '◉ ' + msg;
+}
+
+// Planet order from the Sun (0-indexed)
+const PLANET_ORDER = [
+  'Mercury', 'Venus', 'Earth', 'Mars',
+  'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'
+];
+
+function buildOrbitDots(name) {
+  const wrap = $('orbit-dots');
+  wrap.innerHTML = '';
+  PLANET_ORDER.forEach(p => {
+    const dot = document.createElement('span');
+    dot.className = 'orbit-ring' + (p === name ? ' active' : '');
+    dot.title = p;
+    wrap.appendChild(dot);
+  });
+}
+
+// Diameter relative sizes for bar (Jupiter = 100%)
+const DIAMETERS = {
+  'Mercury': 4879, 'Venus': 12104, 'Earth': 12756, 'Mars': 6792,
+  'Jupiter': 142984, 'Saturn': 120536, 'Uranus': 51118,
+  'Neptune': 49528, 'Pluto': 2376
+};
+const MAX_DIA = 142984;
+
+async function loadRandom() {
+  setStatus('loading', 'QUERYING ARCHIVE...');
+  $('refresh-fill').style.width = '50%';
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10000);
+    const res = await fetch('/api/solarsystem/random', { cache: 'no-store', signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    render(data);
+    setStatus('ok', 'ONLINE');
+  } catch (e) {
+    setStatus('err', 'ERROR: ' + e.message);
+  }
+  $('refresh-fill').style.width = '0%';
+}
+
+function render(data) {
+  const name = (data.name || '').toUpperCase();
+  document.title = `SOL DB // ${name}`;
+  set('subheader', `PLANETARY RECORD — ${name}`);
+  set('planet-name', name);
+  set('planet-type', data.type || '—');
+  set('diameter', data.diameter_km || '—');
+  set('distance', data.distance_au || '—');
+  set('distance-km', data.distance_km || '—');
+  set('moons', data.moons != null
+    ? (data.moons === 0 ? 'NONE' : data.moons.toString())
+    : '—');
+  set('surface-temp', (data.surface_temp || '—').toUpperCase());
+  set('orbital-period', (data.orbital_period || '—').toUpperCase());
+  set('atmosphere', (data.atmosphere || '—').toUpperCase());
+  set('notable', (data.notable || '—').toUpperCase());
+  set('fun-fact', data.fun_fact || '—');
+  set('record-counter', `BODY: ${(data.index ?? 0) + 1} / ${data.total ?? 9}`);
+  set('last-query', 'LAST QUERY: ' + new Date().toLocaleTimeString());
+
+  // Size rank & bar
+  const rank = data.size_rank || 1;
+  set('size-rank', `${rank} OF 9`);
+  const pct = Math.round(((DIAMETERS[data.name] || 5000) / MAX_DIA) * 100);
+  $('size-bar').style.width = Math.max(2, pct) + '%';
+
+  // ASCII art
+  const art = $('planet-art');
+  const lines = data.ascii_art || [];
+  art.textContent = lines.join('\n');
+  // Scale art size hint based on planet
+  const large = ['Jupiter', 'Saturn'].includes(data.name);
+  const small = ['Mercury', 'Pluto'].includes(data.name);
+  art.className = 'planet-art' + (large ? ' large' : small ? ' small' : '');
+
+  // Orbit position dots
+  const orbitPos = PLANET_ORDER.indexOf(data.name) + 1;
+  set('orbit-position', orbitPos > 0 ? `${orbitPos} FROM SUN` : '—');
+  buildOrbitDots(data.name);
+}
+
+// Click anywhere (outside button) to load next
+document.addEventListener('click', e => {
+  if (e.target.tagName !== 'BUTTON') loadRandom();
+});
+
+loadRandom();
+</script>
+</body>
+</html>
