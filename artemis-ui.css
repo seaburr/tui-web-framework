@@ -74,13 +74,14 @@ body::after {
 /* ─── HEADER ─── */
 .aui-header {
   font-family: var(--font-crt);
-  font-size: 36px;
+  font-size: clamp(16px, 3.5vw, 36px);
   text-align: center;
   color: var(--green);
   text-shadow: 0 0 10px var(--green-glow), 0 0 20px var(--green-glow);
-  letter-spacing: 4px;
+  letter-spacing: clamp(1px, 0.4vw, 4px);
   padding: 8px 0 4px;
   line-height: 1.1;
+  white-space: nowrap;
 }
 
 .aui-subheader {
@@ -138,7 +139,7 @@ body::after {
 }
 @media (max-width: 700px) {
   .aui-grid, .aui-grid-2, .aui-grid-4 { grid-template-columns: 1fr; }
-  .aui-header { font-size: 26px; }
+  .aui-header { font-size: clamp(14px, 5vw, 24px); letter-spacing: clamp(0px, 0.5vw, 2px); }
   .panel.span-2, .panel.span-3 { grid-column: span 1; }
 }
 

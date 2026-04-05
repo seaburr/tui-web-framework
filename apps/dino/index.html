@@ -14,29 +14,6 @@
       line-height: 1.7;
       padding: 4px 0;
     }
-    .next-btn {
-      display: block;
-      width: 100%;
-      margin-top: 14px;
-      padding: 10px 0;
-      background: none;
-      border: 1px solid #333;
-      color: #888;
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 13px;
-      letter-spacing: 2px;
-      cursor: pointer;
-      text-align: center;
-      transition: border-color 0.15s, color 0.15s;
-    }
-    .next-btn:hover {
-      border-color: #888;
-      color: #ccc;
-    }
-    .next-btn:active {
-      color: #fff;
-      border-color: #aaa;
-    }
     .diet-CARNIVORE { color: #c0392b; }
     .diet-HERBIVORE { color: #27ae60; }
     .diet-OMNIVORE  { color: #e67e22; }
@@ -45,7 +22,7 @@
 <body>
 
 <div class="aui-header">
-  ◄ PALEONTOLOGY DATABASE ►<span class="blink">_</span>
+  PALEONTOLOGY DATABASE<span class="blink">_</span>
 </div>
 <div class="aui-subheader" id="subheader">SPECIMEN RECORD — LOADING...</div>
 
@@ -102,9 +79,6 @@
         <span class="label">RECORDS</span>
         <span class="value dim" id="total-records">—</span>
       </div>
-      <button class="next-btn" id="next-btn" onclick="loadRandom()">
-        [ NEXT SPECIMEN → ]
-      </button>
     </div>
   </div>
 
@@ -164,7 +138,8 @@ function buildTimeline(periodStr) {
 
   for (const era of eras) {
     const isActive = myaStart !== null && myaStart <= era.start && myaStart >= era.end;
-    const pct = Math.max(2, Math.round(((era.start - era.end) / totalSpan) * 100));
+    const leftPct  = Math.round(((252 - era.start) / totalSpan) * 100);
+    const widthPct = Math.max(1, Math.round(((era.start - era.end) / totalSpan) * 100));
 
     const row = document.createElement('div');
     row.className = 'row';
@@ -180,11 +155,11 @@ function buildTimeline(periodStr) {
 
     const bar = document.createElement('div');
     bar.style.cssText = `
-      width:${pct}%;
+      width:${widthPct}%;
       height:100%;
-      background:${isActive ? '#888' : '#222'};
+      background:${isActive ? '#888' : '#333'};
       border-right:${isActive ? '2px solid #ccc' : 'none'};
-      position:absolute; left:0; top:0;
+      position:absolute; left:${leftPct}%; top:0;
     `;
 
     const mya = document.createElement('span');

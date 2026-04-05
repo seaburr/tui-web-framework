@@ -10,7 +10,7 @@
 <body>
 
 <div class="aui-header">
-  ◄ SURFACE WEATHER REPORT ►<span class="blink">_</span>
+  SURFACE WEATHER REPORT<span class="blink">_</span>
 </div>
 <div class="aui-subheader" id="location-label">ENTER ZIP CODE IN URL: /weather/30002</div>
 
@@ -74,6 +74,10 @@
         <span class="value" id="zip-display">—</span>
       </div>
       <div class="row">
+        <span class="label">STATION</span>
+        <span class="value dim" id="station">—</span>
+      </div>
+      <div class="row">
         <span class="label">LATITUDE</span>
         <span class="value" id="lat">—</span>
       </div>
@@ -81,11 +85,12 @@
         <span class="label">LONGITUDE</span>
         <span class="value" id="lon">—</span>
       </div>
-      <div class="row">
-        <span class="label">STATION</span>
-        <span class="value dim" id="station">—</span>
-      </div>
-    </div>
+      <div class="row"><span class="label">COUNTRY</span><span class="value dim">USA</span></div>
+      <div class="row"><span class="label">CONTINENT</span><span class="value dim">NORTH AMERICA</span></div>
+      <div class="row"><span class="label">PLANET</span><span class="value dim">EARTH</span></div>
+      <div class="row"><span class="label">STAR</span><span class="value dim">SOL</span></div>
+      <div class="row"><span class="label">SPUR</span><span class="value dim">ORION ARM</span></div>
+      <div class="row"><span class="label">GALAXY</span><span class="value dim">MILKY WAY</span></div>
   </div>
 
   <!-- PANEL: 7-DAY FORECAST -->
@@ -179,14 +184,13 @@ function render(data) {
   // Header
   const city  = (loc.city  || '').toUpperCase();
   const state = (loc.state || '').toUpperCase();
-  const cosmicSuffix = ', USA, NORTH AMERICA, EARTH, ORION SPUR, MILKY WAY GALAXY';
   document.title = `WEATHER // ${city}, ${state}`;
-  $('location-label').textContent = `${city}, ${state}${cosmicSuffix}  //  ${loc.zip}`;
-  set('location-detail', `LOCATION: ${city}, ${state}${cosmicSuffix}`);
+  $('location-label').textContent = `${city}, ${state}  //  ${loc.zip}`;
+  set('location-detail', `LOCATION: ${city}, ${state}`);
 
   // Location panel
   set('city-hero', city);
-  set('state-hero', state + cosmicSuffix);
+  set('state-hero', state);
   set('zip-display', loc.zip);
   set('lat',     loc.lat != null ? loc.lat.toFixed(4) + '°' : '—');
   set('lon',     loc.lon != null ? loc.lon.toFixed(4) + '°' : '—');
