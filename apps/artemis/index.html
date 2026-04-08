@@ -497,6 +497,10 @@
         <span class="label">PHASE NAME</span>
         <span class="value amber" id="phase-name">—</span>
       </div>
+      <div class="row">
+        <span class="label">TRAJECTORY</span>
+        <span class="value" id="trajectory">—</span>
+      </div>
       <hr class="div">
       <div class="row">
         <span class="label">FILE TIMESTAMP</span>
@@ -877,6 +881,19 @@
     const phase = v(2026);
     set('phase-code', phase !== null ? phase : '—');
     set('phase-name', phase !== null ? (PHASE_CODES[phase] || `UNKNOWN (${phase})`) : '—');
+
+    // Trajectory direction — pos·vel dot product sign (ECI coords, units cancel for sign)
+    const trajEl = document.getElementById('trajectory');
+    if (trajEl && sc_x_km !== null && vx_fts !== null) {
+      const dot = sc_x_km * vx_fts + sc_y_km * vy_fts + sc_z_km * vz_fts;
+      if (dot < 0) {
+        trajEl.textContent = '← INBOUND (EARTH)';
+        trajEl.className = 'value good';
+      } else {
+        trajEl.textContent = 'OUTBOUND →';
+        trajEl.className = 'value amber';
+      }
+    }
 
     // Timestamps
     set('ts5010', formatUnixToUTC(v(5010)));
